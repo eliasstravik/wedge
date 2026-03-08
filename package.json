@@ -1,6 +1,6 @@
 {
   "name": "wedge",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "license": "MIT",
   "description": "Chrome extension for sending data to Clay.",
   "type": "module",

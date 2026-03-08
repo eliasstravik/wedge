@@ -263,7 +263,7 @@ export function PopupApp() {
         ) : (
           <>
             <div className="flex items-start justify-between gap-3">
-              <BrandLockup subtitle="Select a webhook, review the payload, and send" />
+              <BrandLockup subtitle="Chrome extension for sending data to Clay." />
               <Button
                 onClick={() => void openSettingsPage("root")}
                 size="sm"

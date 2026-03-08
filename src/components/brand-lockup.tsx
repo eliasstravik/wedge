@@ -10,7 +10,7 @@ export function BrandLockup({
 }) {
   return (
     <div className={cn("flex items-center gap-3", className)}>
-      <div className="relative flex size-11 items-center justify-center overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
+      <div className="relative flex size-11 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card shadow-sm">
         <img alt="" className="size-8" src={brandUrl} />
       </div>
       <div className="space-y-0.5">
