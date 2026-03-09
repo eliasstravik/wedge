@@ -549,6 +549,7 @@ export function OptionsApp() {
             onEditWebhook={(webhook) => void openEditEditor(webhook)}
             onExportAll={openExportAll}
             onExportWebhook={openExportWebhook}
+            onFileDrop={(file) => void handleImportFileChange(file)}
             onImport={handleImportWebhooks}
             onImportTextChange={setImportText}
             onNewWebhook={openCreateEditor}
@@ -671,6 +672,7 @@ function WebhooksIndexView({
   onEditWebhook,
   onExportAll,
   onExportWebhook,
+  onFileDrop,
   onImport,
   onImportTextChange,
   onNewWebhook,
@@ -689,6 +691,7 @@ function WebhooksIndexView({
   onEditWebhook: (webhook: WebhookConfig) => void
   onExportAll: () => void
   onExportWebhook: (webhook: WebhookConfig) => void
+  onFileDrop: (file: File) => void
   onImport: () => void
   onImportTextChange: (value: string) => void
   onNewWebhook: () => void
@@ -743,14 +746,29 @@ function WebhooksIndexView({
                   </Alert>
                 ) : null}
                 <button
-                  className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed py-10 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                  className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed py-10 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground data-[dragover=true]:border-primary/40 data-[dragover=true]:text-foreground"
                   onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(event) => {
+                    event.preventDefault()
+                    event.currentTarget.dataset.dragover = "true"
+                  }}
+                  onDragLeave={(event) => {
+                    delete event.currentTarget.dataset.dragover
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault()
+                    delete event.currentTarget.dataset.dragover
+                    const file = event.dataTransfer.files[0]
+                    if (file) {
+                      onFileDrop(file)
+                    }
+                  }}
                   type="button"
                 >
                   <FileJsonIcon className="size-8" />
                   <span className="text-sm font-medium">Upload JSON file</span>
                   <span className="text-xs text-muted-foreground">
-                    Or paste JSON below and click Import
+                    Or drag & drop a file, or paste JSON below
                   </span>
                 </button>
                 <Textarea

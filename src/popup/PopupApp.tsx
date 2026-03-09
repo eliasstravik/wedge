@@ -257,7 +257,7 @@ export function PopupApp() {
                 <EmptyTitle>Add your first webhook</EmptyTitle>
               </EmptyHeader>
               <EmptyContent>
-                <Button onClick={() => void openSettingsPage("create")}>
+                <Button onClick={() => void openSettingsPage("root")}>
                   <PlusIcon data-icon="inline-start" />
                   New webhook
                 </Button>
