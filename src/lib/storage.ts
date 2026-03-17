@@ -330,6 +330,7 @@ function normalizeField(value: unknown): WebhookField | null {
   const rawKey = asNonEmptyString(item.key)
   const label = asNonEmptyString(item.label)
   const required = Boolean(item.required)
+  const hardcoded = item.hardcoded === true ? true : undefined
   const type = asOptionalString(item.type)
 
   if (!label || !type) {
@@ -373,6 +374,7 @@ function normalizeField(value: unknown): WebhookField | null {
       key,
       label,
       required,
+      hardcoded,
       defaultValue: asString(item.defaultValue),
     }
   }
@@ -390,6 +392,7 @@ function normalizeField(value: unknown): WebhookField | null {
       key,
       label,
       required,
+      hardcoded,
       options,
       defaultValue: asString(item.defaultValue),
     }
@@ -402,6 +405,7 @@ function normalizeField(value: unknown): WebhookField | null {
       key,
       label,
       required,
+      hardcoded,
       defaultValue: typeof item.defaultValue === "boolean" ? item.defaultValue : false,
     }
   }

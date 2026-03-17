@@ -57,6 +57,7 @@ const baseFieldSchema = z.object({
   key: z.string().trim().min(1, "Add a JSON key."),
   label: z.string().trim().min(1, "Add a field label."),
   required: z.boolean(),
+  hardcoded: z.boolean().optional(),
 })
 
 const builtinFieldSchema = baseFieldSchema.extend({

@@ -28,6 +28,7 @@ import {
   HashIcon,
   LinkIcon,
   LoaderCircleIcon,
+  LockIcon,
   MoreHorizontalIcon,
   PlusIcon,
   SquareCheckIcon,
@@ -109,6 +110,14 @@ import {
   FieldTitle,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Toaster } from "@/components/ui/sonner"
@@ -1199,7 +1208,9 @@ function FieldBuilderCard({
           <>
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary">{getFieldTypeLabel(field)}</Badge>
-              {field.required ? <Badge>Required</Badge> : <Badge variant="secondary">Optional</Badge>}
+              {field.hardcoded ? (
+                <Badge variant="outline" className="text-[10px] font-normal"><LockIcon className="mr-1 size-3" />Hardcoded</Badge>
+              ) : field.required ? <Badge>Required</Badge> : <Badge variant="secondary">Optional</Badge>}
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -1233,20 +1244,40 @@ function FieldBuilderCard({
 
             <Field orientation="horizontal">
               <FieldContent>
-                <FieldTitle>Required</FieldTitle>
-                <FieldDescription>Block sending until this field has a value.</FieldDescription>
+                <FieldTitle>Hardcoded</FieldTitle>
+                <FieldDescription>Lock this field to a fixed value. Users cannot change it when sending.</FieldDescription>
               </FieldContent>
               <Switch
-                aria-label={`Mark ${field.label} as required`}
-                checked={field.required}
+                aria-label={`Lock ${field.label} to a hardcoded value`}
+                checked={field.hardcoded ?? false}
                 onCheckedChange={(checked) =>
                   onUpdate(field.id, (current) => ({
                     ...current,
-                    required: checked,
+                    hardcoded: checked || undefined,
+                    required: checked ? false : current.required,
                   }))
                 }
               />
             </Field>
+
+            {!field.hardcoded ? (
+              <Field orientation="horizontal">
+                <FieldContent>
+                  <FieldTitle>Required</FieldTitle>
+                  <FieldDescription>Block sending until this field has a value.</FieldDescription>
+                </FieldContent>
+                <Switch
+                  aria-label={`Mark ${field.label} as required`}
+                  checked={field.required}
+                  onCheckedChange={(checked) =>
+                    onUpdate(field.id, (current) => ({
+                      ...current,
+                      required: checked,
+                    }))
+                  }
+                />
+              </Field>
+            ) : null}
 
             {renderFieldConfiguration(field, onUpdate)}
           </>
@@ -1264,20 +1295,84 @@ function renderFieldConfiguration(
     return null
   }
 
+  const hardcodedValueEditor = field.hardcoded ? renderHardcodedValueEditor(field, onUpdate) : null
+
   if (field.type === "short_text" || field.type === "long_text") {
+    return (
+      <>
+        {!field.hardcoded ? (
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldTitle>Long text</FieldTitle>
+              <FieldDescription>Use a multi-line text area instead of a single-line input.</FieldDescription>
+            </FieldContent>
+            <Switch
+              aria-label="Toggle long text"
+              checked={field.type === "long_text"}
+              onCheckedChange={(checked) =>
+                onUpdate(field.id, (current) => ({
+                  ...current,
+                  type: checked ? "long_text" : "short_text",
+                } as WebhookFieldDraft))
+              }
+            />
+          </Field>
+        ) : null}
+        {hardcodedValueEditor}
+      </>
+    )
+  }
+
+  if (field.type === "dropdown") {
+    return (
+      <>
+        <Field>
+          <FieldLabel htmlFor={`${field.id}-options`}>Options</FieldLabel>
+          <Textarea
+            id={`${field.id}-options`}
+            onChange={(event) => {
+              const nextOptions = linesToValues(event.currentTarget.value)
+
+              onUpdate(field.id, (current) => ({
+                ...current,
+                options: nextOptions,
+              } as WebhookFieldDraft))
+            }}
+            rows={6}
+            value={field.options.join("\n")}
+          />
+          <FieldDescription>One option per line.</FieldDescription>
+        </Field>
+        {hardcodedValueEditor}
+      </>
+    )
+  }
+
+  return hardcodedValueEditor
+}
+
+function renderHardcodedValueEditor(
+  field: WebhookFieldDraft,
+  onUpdate: (fieldId: string, updater: (field: WebhookFieldDraft) => WebhookFieldDraft) => void
+) {
+  if (field.type === "builtin") {
+    return null
+  }
+
+  if (field.type === "checkbox") {
     return (
       <Field orientation="horizontal">
         <FieldContent>
-          <FieldTitle>Long text</FieldTitle>
-          <FieldDescription>Use a multi-line text area instead of a single-line input.</FieldDescription>
+          <FieldTitle>Fixed value</FieldTitle>
+          <FieldDescription>This value is sent with every webhook.</FieldDescription>
         </FieldContent>
         <Switch
-          aria-label="Toggle long text"
-          checked={field.type === "long_text"}
+          aria-label={`Fixed value for ${field.label}`}
+          checked={field.defaultValue === true}
           onCheckedChange={(checked) =>
             onUpdate(field.id, (current) => ({
               ...current,
-              type: checked ? "long_text" : "short_text",
+              defaultValue: checked,
             } as WebhookFieldDraft))
           }
         />
@@ -1288,26 +1383,59 @@ function renderFieldConfiguration(
   if (field.type === "dropdown") {
     return (
       <Field>
-        <FieldLabel htmlFor={`${field.id}-options`}>Options</FieldLabel>
-        <Textarea
-          id={`${field.id}-options`}
-          onChange={(event) => {
-            const nextOptions = linesToValues(event.currentTarget.value)
-
+        <FieldLabel htmlFor={`${field.id}-hardcoded-value`}>Fixed value</FieldLabel>
+        <Select
+          onValueChange={(value) =>
             onUpdate(field.id, (current) => ({
               ...current,
-              options: nextOptions,
+              defaultValue: value,
             } as WebhookFieldDraft))
-          }}
-          rows={6}
-          value={field.options.join("\n")}
-        />
-        <FieldDescription>One option per line.</FieldDescription>
+          }
+          value={typeof field.defaultValue === "string" ? field.defaultValue : ""}
+        >
+          <SelectTrigger id={`${field.id}-hardcoded-value`}>
+            <SelectValue placeholder="Choose an option" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {field.options.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <FieldDescription>This value is sent with every webhook.</FieldDescription>
       </Field>
     )
   }
 
-  return null
+  const inputType =
+    field.type === "number" ? "number"
+      : field.type === "email" ? "email"
+        : field.type === "link" ? "url"
+          : field.type === "date" ? "date"
+            : "text"
+
+  return (
+    <Field>
+      <FieldLabel htmlFor={`${field.id}-hardcoded-value`}>Fixed value</FieldLabel>
+      <Input
+        id={`${field.id}-hardcoded-value`}
+        onChange={(event) => {
+          const value = event.currentTarget.value
+          onUpdate(field.id, (current) => ({
+            ...current,
+            defaultValue: value,
+          } as WebhookFieldDraft))
+        }}
+        type={inputType}
+        value={typeof field.defaultValue === "string" ? field.defaultValue : ""}
+      />
+      <FieldDescription>This value is sent with every webhook.</FieldDescription>
+    </Field>
+  )
 }
 
 function OptionsLoadingState() {

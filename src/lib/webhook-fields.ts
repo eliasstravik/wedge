@@ -180,6 +180,17 @@ export function createInitialFormValues(fields: WebhookField[], page: PageSnapsh
 export function buildPayloadFromValues(fields: WebhookField[], values: WebhookFormValues) {
   return Object.fromEntries(
     fields.map((field) => {
+      if (field.hardcoded && field.type !== "builtin") {
+        if (field.type === "checkbox") {
+          return [field.key, field.defaultValue]
+        }
+        if (field.type === "number") {
+          const v = typeof field.defaultValue === "string" ? field.defaultValue.trim() : ""
+          return [field.key, v.length > 0 ? Number(v) : ""]
+        }
+        return [field.key, field.defaultValue]
+      }
+
       const value = values[field.id]
 
       if (field.type === "checkbox") {
@@ -200,7 +211,7 @@ export function validateWebhookForm(fields: WebhookField[], values: WebhookFormV
   const errors: Record<string, string> = {}
 
   for (const field of fields) {
-    if (!field.required) {
+    if (field.hardcoded || !field.required) {
       continue
     }
 

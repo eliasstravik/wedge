@@ -383,6 +383,34 @@ function PopupField({
 }) {
   const star = field.required ? <span className="text-destructive"> *</span> : null
 
+  if (field.hardcoded && field.type !== "builtin") {
+    return (
+      <Field>
+        <FieldLabel htmlFor={field.id} className="text-muted-foreground">{field.label}</FieldLabel>
+        {field.type === "checkbox" ? (
+          <div className="flex items-center gap-2 opacity-50">
+            <Switch id={field.id} checked={field.defaultValue === true} disabled />
+          </div>
+        ) : field.type === "dropdown" ? (
+          <Input
+            id={field.id}
+            value={typeof field.defaultValue === "string" ? field.defaultValue : ""}
+            disabled
+            className="disabled:opacity-50"
+          />
+        ) : (
+          <Input
+            id={field.id}
+            value={typeof field.defaultValue === "string" ? field.defaultValue : ""}
+            disabled
+            className="disabled:opacity-50"
+            type={getInputType(field)}
+          />
+        )}
+      </Field>
+    )
+  }
+
   if (field.type === "checkbox") {
     return (
       <Field orientation="horizontal" data-invalid={Boolean(error) || undefined}>

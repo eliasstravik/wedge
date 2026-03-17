@@ -35,6 +35,7 @@ export interface BaseWebhookField {
   key: string
   label: string
   required: boolean
+  hardcoded?: boolean
 }
 
 export interface BuiltinWebhookField extends BaseWebhookField {
