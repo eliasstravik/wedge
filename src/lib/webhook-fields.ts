@@ -207,6 +207,22 @@ export function buildPayloadFromValues(fields: WebhookField[], values: WebhookFo
   )
 }
 
+export function buildProfilePayload(profileFields: WebhookField[]) {
+  if (profileFields.length === 0) return undefined
+
+  return Object.fromEntries(
+    profileFields.map((field) => {
+      if (field.type === "builtin") return [field.key, ""]
+      if (field.type === "checkbox") return [field.key, field.defaultValue]
+      if (field.type === "number") {
+        const v = typeof field.defaultValue === "string" ? field.defaultValue.trim() : ""
+        return [field.key, v.length > 0 ? Number(v) : ""]
+      }
+      return [field.key, typeof field.defaultValue === "string" ? field.defaultValue : ""]
+    })
+  )
+}
+
 export function validateWebhookForm(fields: WebhookField[], values: WebhookFormValues) {
   const errors: Record<string, string> = {}
 
@@ -263,6 +279,51 @@ export function getFieldTypeLabel(field: WebhookField) {
 export function getNextCustomFieldKey(fields: WebhookField[], type: CustomFieldType) {
   const count = fields.filter((field) => field.type === type).length
   return `${type}_${count + 1}`
+}
+
+const PROFILE_DEFAULT_KEYS: Partial<Record<CustomFieldType, string>> = {
+  short_text: "name",
+  long_text: "notes",
+  number: "number",
+  email: "email",
+  link: "link",
+  date: "date",
+  checkbox: "checkbox",
+  dropdown: "dropdown",
+}
+
+export function createProfileField(
+  type: CustomFieldType,
+  existingFields: WebhookField[]
+): WebhookFieldDraft {
+  const baseKey = PROFILE_DEFAULT_KEYS[type] ?? type
+  const usedKeys = new Set(existingFields.map((f) => f.key))
+  let key = baseKey
+  let n = 2
+  while (usedKeys.has(key)) {
+    key = `${baseKey}_${n}`
+    n++
+  }
+
+  const label = key === baseKey
+    ? baseKey.charAt(0).toUpperCase() + baseKey.slice(1)
+    : `${baseKey.charAt(0).toUpperCase() + baseKey.slice(1)} ${n - 1}`
+
+  const base = { id: randomId(), key, label, required: false, hardcoded: true as const }
+
+  switch (type) {
+    case "short_text":
+    case "long_text":
+    case "number":
+    case "email":
+    case "link":
+    case "date":
+      return { ...base, type, defaultValue: "" }
+    case "dropdown":
+      return { ...base, type, options: ["Option 1", "Option 2", "Option 3"], defaultValue: "" }
+    case "checkbox":
+      return { ...base, type, defaultValue: false }
+  }
 }
 
 export function toSnakeCase(input: string) {

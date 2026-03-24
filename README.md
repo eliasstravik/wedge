@@ -42,6 +42,7 @@ Then load `dist/` as an unpacked extension (steps 3-5 above).
 - **Page autofill** — automatically captures URL, title, description, canonical URL, og:title, selected text, and hostname
 - **Custom fields** — add text, number, email, phone, date, dropdown, multi-select, rating, matrix, ranking, and more
 - **Hardcoded fields** — lock any custom field to a fixed value so the popup shows it as read-only and always sends the configured payload value
+- **Global profile** — add sender identity fields (name, email, CRM user ID, etc.) once and have them included under a `profile` key with every webhook automatically
 - **Multi-webhook support** — configure multiple Clay webhooks with independent payload schemas
 - **Settings workspace** — full webhook CRUD, payload field editor, drag-and-drop ordering, and test sends
 - **Import / export** — share webhook configurations as JSON across your team

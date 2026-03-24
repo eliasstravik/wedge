@@ -45,6 +45,7 @@ import { getAppState, getHostname, getUiState, saveUiState } from "@/lib/storage
 import {
   BUILTIN_FIELD_DEFINITIONS,
   buildPayloadFromValues,
+  buildProfilePayload,
   createInitialFormValues,
   validateWebhookForm,
 } from "@/lib/webhook-fields"
@@ -96,8 +97,9 @@ export function PopupApp() {
   const page = buildPageSnapshot(currentTab, pageContext)
   const isSupportedPage = page.url.startsWith("https://")
   const formErrors = selectedWebhook ? validateWebhookForm(selectedWebhook.fields, formValues) : {}
+  const profileFields = appState?.profileFields ?? []
   const previewJson = selectedWebhook
-    ? JSON.stringify(buildPayloadFromValues(selectedWebhook.fields, formValues), null, 2)
+    ? JSON.stringify(buildFullPayload(selectedWebhook, formValues, profileFields), null, 2)
     : "{}"
 
   const sendDisabledReason = !hasWebhooks
@@ -182,7 +184,7 @@ export function PopupApp() {
       const response = (await chrome.runtime.sendMessage({
         type: "wedge/send",
         webhookId: selectedWebhook.id,
-        payload: buildPayloadFromValues(selectedWebhook.fields, formValues),
+        payload: buildFullPayload(selectedWebhook, formValues, profileFields),
         pageTitle: page.title,
         pageHostname: page.hostname,
       })) as BackgroundResponse | undefined
@@ -547,6 +549,15 @@ async function getPageContext(tab: chrome.tabs.Tab | null) {
   } catch {
     return EMPTY_PAGE_CONTEXT
   }
+}
+
+function buildFullPayload(webhook: WebhookConfig, values: WebhookFormValues, profileFields: WebhookField[]) {
+  const payload = buildPayloadFromValues(webhook.fields, values)
+  const profile = buildProfilePayload(profileFields)
+  if (profile && Object.keys(profile).length > 0) {
+    return { ...payload, profile }
+  }
+  return payload
 }
 
 async function openSettingsPage(target: "root" | "create" | { webhookId: string }) {

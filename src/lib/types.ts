@@ -125,6 +125,7 @@ export interface AppState {
   webhooks: WebhookConfig[]
   history: HistoryEntry[]
   uiState: UIState
+  profileFields: WebhookField[]
 }
 
 export interface Diagnostics {

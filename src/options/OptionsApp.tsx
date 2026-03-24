@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useRef, useState } from "react"
+import { startTransition, useCallback, useEffect, useRef, useState } from "react"
 import {
   DndContext,
   closestCenter,
@@ -35,6 +35,7 @@ import {
   Trash2Icon,
   TypeIcon,
   UploadIcon,
+  UserIcon,
   WebhookIcon,
   XIcon,
 } from "lucide-react"
@@ -123,16 +124,18 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Toaster } from "@/components/ui/sonner"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { getAppState, getHostname, saveUiState, saveWebhooks, setDefaultWebhook, upsertWebhook, removeWebhook } from "@/lib/storage"
+import { getAppState, getHostname, saveProfileFields, saveUiState, saveWebhooks, setDefaultWebhook, upsertWebhook, removeWebhook } from "@/lib/storage"
 import { createEmptyWebhookDraft, toWebhookDraft } from "@/lib/webhook-drafts"
 import {
   BUILTIN_FIELD_DEFINITIONS,
   CUSTOM_FIELD_TYPE_LABELS,
   buildPayloadFromValues,
+  buildProfilePayload,
   createBuiltinField,
   createCustomField,
   createDefaultWebhookFields,
   createInitialFormValues,
+  createProfileField,
   getFieldTypeLabel,
   getNextCustomFieldKey,
   getUnusedBuiltinKeys,
@@ -148,8 +151,10 @@ import type {
   WebhookDraft,
   WebhookFieldDraft,
 } from "@/lib/types"
+import { cn } from "@/lib/utils"
 import {
   parseImportedWebhooks,
+  validateProfileFields,
   validateWebhookDraft,
   validateWebhookFields,
 } from "@/lib/validation"
@@ -213,8 +218,10 @@ export function OptionsApp() {
   const [editorState, setEditorState] = useState<EditorState>(CLOSED_EDITOR)
   const [webhookDraft, setWebhookDraft] = useState<WebhookDraft>(createEmptyWebhookDraft(true))
   const [fieldDrafts, setFieldDrafts] = useState<WebhookFieldDraft[]>(createDefaultWebhookFields())
+  const [profileDrafts, setProfileDrafts] = useState<WebhookFieldDraft[]>([])
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof WebhookDraft, string>>>({})
   const [fieldConfigError, setFieldConfigError] = useState<string | null>(null)
+  const [profileConfigError, setProfileConfigError] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [importText, setImportText] = useState("")
   const [importError, setImportError] = useState<string | null>(null)
@@ -237,11 +244,14 @@ export function OptionsApp() {
       : null
   const hasWebhooks = webhooks.length > 0
   const unusedBuiltinKeys = getUnusedBuiltinKeys(fieldDrafts)
-  const previewJson = JSON.stringify(
-    buildPayloadFromValues(fieldDrafts, createInitialFormValues(fieldDrafts, EXAMPLE_PAGE)),
-    null,
-    2
-  )
+  const previewJson = (() => {
+    const payload = buildPayloadFromValues(fieldDrafts, createInitialFormValues(fieldDrafts, EXAMPLE_PAGE))
+    const profile = buildProfilePayload(profileDrafts)
+    if (profile && Object.keys(profile).length > 0) {
+      return JSON.stringify({ ...payload, profile }, null, 2)
+    }
+    return JSON.stringify(payload, null, 2)
+  })()
 
   async function load(preferredEditor?: EditorState) {
     setIsLoading(true)
@@ -263,8 +273,10 @@ export function OptionsApp() {
             : createEmptyWebhookDraft(state.webhooks.length === 0)
         )
         setFieldDrafts(nextWebhook ? cloneFields(nextWebhook.fields) : createDefaultWebhookFields())
+        setProfileDrafts(state.profileFields.length > 0 ? cloneFields(state.profileFields) : [])
         setFieldErrors({})
         setFieldConfigError(null)
+        setProfileConfigError(null)
         setImportError(null)
         setIsLoading(false)
       })
@@ -281,8 +293,10 @@ export function OptionsApp() {
     setEditorState({ mode: "create" })
     setWebhookDraft(createEmptyWebhookDraft(webhooks.length === 0))
     setFieldDrafts(createDefaultWebhookFields())
+    setProfileDrafts([])
     setFieldErrors({})
     setFieldConfigError(null)
+    setProfileConfigError(null)
   }
 
   async function openEditEditor(webhook: WebhookConfig) {
@@ -293,6 +307,7 @@ export function OptionsApp() {
     setFieldDrafts(cloneFields(webhook.fields))
     setFieldErrors({})
     setFieldConfigError(null)
+    setProfileConfigError(null)
   }
 
   function closeEditor() {
@@ -300,8 +315,10 @@ export function OptionsApp() {
     setEditorState(CLOSED_EDITOR)
     setWebhookDraft(createEmptyWebhookDraft(webhooks.length === 0))
     setFieldDrafts(createDefaultWebhookFields())
+    setProfileDrafts([])
     setFieldErrors({})
     setFieldConfigError(null)
+    setProfileConfigError(null)
   }
 
   async function handleSaveWebhook() {
@@ -523,6 +540,55 @@ export function OptionsApp() {
     })
   }
 
+  const [profileSaved, setProfileSaved] = useState(false)
+  const profileSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const profileSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const debouncedSaveProfile = useCallback((fields: WebhookFieldDraft[]) => {
+    if (profileSaveTimer.current) clearTimeout(profileSaveTimer.current)
+    if (profileSavedTimer.current) clearTimeout(profileSavedTimer.current)
+    setProfileSaved(false)
+    profileSaveTimer.current = setTimeout(() => {
+      void saveProfileFields(fields).then(() => {
+        setProfileSaved(true)
+        profileSavedTimer.current = setTimeout(() => setProfileSaved(false), 2000)
+      })
+    }, 400)
+  }, [])
+
+  function saveProfileImmediate(fields: WebhookFieldDraft[]) {
+    if (profileSaveTimer.current) clearTimeout(profileSaveTimer.current)
+    if (profileSavedTimer.current) clearTimeout(profileSavedTimer.current)
+    void saveProfileFields(fields).then(() => {
+      setProfileSaved(true)
+      profileSavedTimer.current = setTimeout(() => setProfileSaved(false), 2000)
+    })
+  }
+
+  function addProfileField(type: CustomFieldType) {
+    setProfileDrafts((current) => {
+      const next = [...current, createProfileField(type, current)]
+      saveProfileImmediate(next)
+      return next
+    })
+  }
+
+  function updateProfileField(fieldId: string, updater: (field: WebhookFieldDraft) => WebhookFieldDraft) {
+    setProfileDrafts((current) => {
+      const next = current.map((field) => (field.id === fieldId ? updater(field) : field))
+      debouncedSaveProfile(next)
+      return next
+    })
+  }
+
+  function removeProfileField(fieldId: string) {
+    setProfileDrafts((current) => {
+      const next = current.filter((field) => field.id !== fieldId)
+      saveProfileImmediate(next)
+      return next
+    })
+  }
+
   return (
     <>
       <Toaster closeButton position="top-center" richColors />
@@ -565,6 +631,12 @@ export function OptionsApp() {
             onReorderWebhooks={(ids) => void handleReorderWebhooks(ids)}
             onOpenImport={() => setImportOpen((current) => !current)}
             webhooks={webhooks}
+            profileDrafts={profileDrafts}
+            profileConfigError={profileConfigError}
+            profileSaved={profileSaved}
+            onAddProfileField={addProfileField}
+            onUpdateProfileField={updateProfileField}
+            onRemoveProfileField={removeProfileField}
           />
         ) : (
           <WebhookEditorView
@@ -688,6 +760,12 @@ function WebhooksIndexView({
   onOpenImport,
   onReorderWebhooks,
   webhooks,
+  profileDrafts,
+  profileConfigError,
+  profileSaved,
+  onAddProfileField,
+  onUpdateProfileField,
+  onRemoveProfileField,
 }: {
   fileInputRef: React.MutableRefObject<HTMLInputElement | null>
   hasWebhooks: boolean
@@ -707,6 +785,12 @@ function WebhooksIndexView({
   onOpenImport: () => void
   onReorderWebhooks: (orderedIds: string[]) => void
   webhooks: WebhookConfig[]
+  profileDrafts: WebhookFieldDraft[]
+  profileConfigError: string | null
+  profileSaved: boolean
+  onAddProfileField: (type: CustomFieldType) => void
+  onUpdateProfileField: (fieldId: string, updater: (field: WebhookFieldDraft) => WebhookFieldDraft) => void
+  onRemoveProfileField: (fieldId: string) => void
 }) {
   return (
     <>
@@ -829,6 +913,86 @@ function WebhooksIndexView({
             </EmptyContent>
           </Empty>
         )}
+
+        <Separator />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2 className="flex items-center gap-2">
+                <UserIcon className="size-4" />
+                Profile
+              </h2>
+            </CardTitle>
+            <CardDescription>
+              Add fields that identify you as the sender. These values are included under a <code className="rounded bg-muted px-1 py-0.5 text-[11px]">profile</code> key with every webhook you send.
+            </CardDescription>
+            <CardAction>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline">
+                    <PlusIcon data-icon="inline-start" />
+                    Add field
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuGroup>
+                    {[...CUSTOM_FIELD_DATA_TYPES, ...CUSTOM_FIELD_CHOICE_TYPES].map((type) => (
+                      <DropdownMenuItem key={type} onClick={() => onAddProfileField(type)}>
+                        {CUSTOM_FIELD_ICONS[type]}
+                        {CUSTOM_FIELD_DROPDOWN_LABELS[type] ?? CUSTOM_FIELD_TYPE_LABELS[type]}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </CardAction>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-5">
+            {profileConfigError ? (
+              <Alert variant="destructive">
+                <AlertTitle>Profile needs attention</AlertTitle>
+                <AlertDescription>{profileConfigError}</AlertDescription>
+              </Alert>
+            ) : null}
+
+            {profileDrafts.length > 0 ? (
+              <div className="flex flex-col gap-4">
+                {profileDrafts.map((field) => (
+                  <ProfileFieldCard
+                    field={field}
+                    key={field.id}
+                    onRemove={onRemoveProfileField}
+                    onUpdate={onUpdateProfileField}
+                  />
+                ))}
+              </div>
+            ) : (
+              <Empty className="border border-dashed">
+                <EmptyHeader>
+                  <EmptyTitle>No profile fields yet</EmptyTitle>
+                  <EmptyDescription>
+                    Add your name, email, CRM user ID, or any other data you want sent with every webhook.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )}
+          </CardContent>
+          {profileDrafts.length > 0 ? (
+            <CardFooter>
+              <p className={cn("text-xs transition-opacity", profileSaved ? "text-muted-foreground opacity-100" : "opacity-0")}>
+                {profileSaved ? (
+                  <span className="flex items-center gap-1">
+                    <CircleCheckIcon className="size-3" />
+                    Saved
+                  </span>
+                ) : (
+                  "Saved"
+                )}
+              </p>
+            </CardFooter>
+          ) : null}
+        </Card>
       </div>
     </>
   )
@@ -1434,6 +1598,180 @@ function renderHardcodedValueEditor(
         value={typeof field.defaultValue === "string" ? field.defaultValue : ""}
       />
       <FieldDescription>This value is sent with every webhook.</FieldDescription>
+    </Field>
+  )
+}
+
+function ProfileFieldCard({
+  field,
+  onUpdate,
+  onRemove,
+}: {
+  field: WebhookFieldDraft
+  onUpdate: (fieldId: string, updater: (field: WebhookFieldDraft) => WebhookFieldDraft) => void
+  onRemove: (fieldId: string) => void
+}) {
+  if (field.type === "builtin") return null
+
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>
+          <h3 className="flex items-center gap-2">
+            {field.label || "Untitled field"}
+            <Badge variant="secondary">{getFieldTypeLabel(field)}</Badge>
+          </h3>
+        </CardTitle>
+        <CardAction>
+          <Button
+            aria-label={`Remove ${field.label || "field"}`}
+            onClick={() => onRemove(field.id)}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <Trash2Icon />
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor={`${field.id}-profile-label`}>Label</FieldLabel>
+            <Input
+              id={`${field.id}-profile-label`}
+              onChange={(event) => {
+                const value = event.currentTarget.value
+                onUpdate(field.id, (current) => ({ ...current, label: value }))
+              }}
+              placeholder="e.g. Full name"
+              value={field.label}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`${field.id}-profile-key`}>JSON key</FieldLabel>
+            <Input
+              id={`${field.id}-profile-key`}
+              onChange={(event) => {
+                const value = event.currentTarget.value
+                onUpdate(field.id, (current) => ({ ...current, key: toSnakeCaseLive(value) }))
+              }}
+              onBlur={() => {
+                onUpdate(field.id, (current) => ({ ...current, key: toSnakeCase(current.key) }))
+              }}
+              placeholder="e.g. full_name"
+              value={field.key}
+            />
+            <FieldDescription>Saved in snake_case.</FieldDescription>
+          </Field>
+        </div>
+
+        {field.type === "dropdown" ? (
+          <Field>
+            <FieldLabel htmlFor={`${field.id}-profile-options`}>Options</FieldLabel>
+            <Textarea
+              id={`${field.id}-profile-options`}
+              onChange={(event) => {
+                const nextOptions = event.currentTarget.value.split("\n")
+                onUpdate(field.id, (current) => ({
+                  ...current,
+                  options: nextOptions,
+                } as WebhookFieldDraft))
+              }}
+              rows={4}
+              value={(field as { options?: string[] }).options?.join("\n") ?? ""}
+            />
+            <FieldDescription>One option per line.</FieldDescription>
+          </Field>
+        ) : null}
+
+        {renderProfileValueEditor(field, onUpdate)}
+      </CardContent>
+    </Card>
+  )
+}
+
+function renderProfileValueEditor(
+  field: WebhookFieldDraft,
+  onUpdate: (fieldId: string, updater: (field: WebhookFieldDraft) => WebhookFieldDraft) => void
+) {
+  if (field.type === "builtin") return null
+
+  if (field.type === "checkbox") {
+    return (
+      <Field orientation="horizontal">
+        <FieldContent>
+          <FieldTitle>Value</FieldTitle>
+          <FieldDescription>Sent with every webhook.</FieldDescription>
+        </FieldContent>
+        <Switch
+          aria-label={`Value for ${field.label}`}
+          checked={field.defaultValue === true}
+          onCheckedChange={(checked) =>
+            onUpdate(field.id, (current) => ({
+              ...current,
+              defaultValue: checked,
+            } as WebhookFieldDraft))
+          }
+        />
+      </Field>
+    )
+  }
+
+  if (field.type === "dropdown") {
+    return (
+      <Field>
+        <FieldLabel htmlFor={`${field.id}-profile-value`}>Value</FieldLabel>
+        <Select
+          onValueChange={(value) =>
+            onUpdate(field.id, (current) => ({
+              ...current,
+              defaultValue: value,
+            } as WebhookFieldDraft))
+          }
+          value={typeof field.defaultValue === "string" ? field.defaultValue : ""}
+        >
+          <SelectTrigger id={`${field.id}-profile-value`}>
+            <SelectValue placeholder="Choose an option" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {field.options.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <FieldDescription>Sent with every webhook.</FieldDescription>
+      </Field>
+    )
+  }
+
+  const inputType =
+    field.type === "number" ? "number"
+      : field.type === "email" ? "email"
+        : field.type === "link" ? "url"
+          : field.type === "date" ? "date"
+            : "text"
+
+  return (
+    <Field>
+      <FieldLabel htmlFor={`${field.id}-profile-value`}>Value</FieldLabel>
+      <Input
+        id={`${field.id}-profile-value`}
+        onChange={(event) => {
+          const value = event.currentTarget.value
+          onUpdate(field.id, (current) => ({
+            ...current,
+            defaultValue: value,
+          } as WebhookFieldDraft))
+        }}
+        placeholder={field.type === "email" ? "you@company.com" : ""}
+        type={inputType}
+        value={typeof field.defaultValue === "string" ? field.defaultValue : ""}
+      />
+      <FieldDescription>Sent with every webhook.</FieldDescription>
     </Field>
   )
 }

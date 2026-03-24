@@ -14,6 +14,7 @@ export const STORAGE_KEYS = {
   WEBHOOKS: "wedge.webhooks",
   HISTORY: "wedge.history",
   UI_STATE: "wedge.uiState",
+  PROFILE: "wedge.profile",
   SCHEMA_VERSION: "wedge.schemaVersion",
 } as const
 
@@ -21,7 +22,7 @@ const LEGACY_STORAGE_KEYS = {
   DESTINATIONS: "wedge.destinations",
 } as const
 
-export const CURRENT_SCHEMA_VERSION = 4
+export const CURRENT_SCHEMA_VERSION = 5
 export const CLAY_WEBHOOK_AUTH_HEADER = "x-clay-webhook-auth"
 
 export const DEFAULT_UI_STATE: UIState = {}
@@ -72,6 +73,12 @@ export async function saveUiState(uiState: Partial<UIState>) {
 export async function getUiState(): Promise<UIState> {
   const raw = await chrome.storage.local.get([STORAGE_KEYS.UI_STATE])
   return normalizeUiState(raw[STORAGE_KEYS.UI_STATE])
+}
+
+export async function saveProfileFields(fields: WebhookField[]) {
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.PROFILE]: fields.length > 0 ? fields : [],
+  })
 }
 
 export async function clearHistory() {
@@ -240,6 +247,7 @@ function normalizeStorage(raw: Record<string, unknown>) {
   )
   const history = normalizeHistory(raw[STORAGE_KEYS.HISTORY])
   const uiState = normalizeUiState(raw[STORAGE_KEYS.UI_STATE])
+  const profileFields = normalizeProfileFields(raw[STORAGE_KEYS.PROFILE]) ?? []
   const schemaVersion = Number(raw[STORAGE_KEYS.SCHEMA_VERSION] ?? 0)
   const didChange =
     schemaVersion !== CURRENT_SCHEMA_VERSION ||
@@ -251,6 +259,7 @@ function normalizeStorage(raw: Record<string, unknown>) {
     webhooks,
     history,
     uiState,
+    profileFields,
   }
 
   return {
@@ -260,6 +269,7 @@ function normalizeStorage(raw: Record<string, unknown>) {
       [STORAGE_KEYS.WEBHOOKS]: webhooks,
       [STORAGE_KEYS.HISTORY]: history,
       [STORAGE_KEYS.UI_STATE]: uiState,
+      [STORAGE_KEYS.PROFILE]: profileFields,
       [STORAGE_KEYS.SCHEMA_VERSION]: CURRENT_SCHEMA_VERSION,
     },
   }
@@ -318,6 +328,18 @@ function normalizeFields(value: unknown): WebhookField[] {
     .filter((field): field is WebhookField => field !== null)
 
   return fields.length > 0 ? fields : createDefaultWebhookFields()
+}
+
+function normalizeProfileFields(value: unknown): WebhookField[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) {
+    return undefined
+  }
+
+  const fields = value
+    .map((field) => normalizeField(field))
+    .filter((field): field is WebhookField => field !== null && field.type !== "builtin")
+
+  return fields.length > 0 ? fields : undefined
 }
 
 function normalizeField(value: unknown): WebhookField | null {

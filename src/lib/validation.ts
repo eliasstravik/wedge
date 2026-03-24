@@ -203,6 +203,51 @@ export function validateWebhookFields(fields: WebhookFieldDraft[]) {
   }
 }
 
+export function validateProfileFields(fields: WebhookFieldDraft[]) {
+  if (fields.length === 0) {
+    return { ok: true as const, fields: [] as WebhookField[] }
+  }
+
+  const parsedFields: WebhookField[] = []
+
+  for (const field of fields) {
+    const parsed = webhookFieldSchema.safeParse(field)
+
+    if (!parsed.success) {
+      return {
+        ok: false as const,
+        message: parsed.error.issues[0]?.message ?? "Fix the profile field configuration.",
+      }
+    }
+
+    const normalizedField = normalizeFieldDefaults(parsed.data)
+
+    if (normalizedField.key.length === 0) {
+      return {
+        ok: false as const,
+        message: `Use letters or numbers in the JSON key for ${normalizedField.label}.`,
+      }
+    }
+
+    parsedFields.push(normalizedField)
+  }
+
+  const normalizedKeys = parsedFields.map((field) => field.key)
+  const uniqueKeys = new Set(normalizedKeys)
+
+  if (uniqueKeys.size !== normalizedKeys.length) {
+    return {
+      ok: false as const,
+      message: "Each profile field needs a unique JSON key.",
+    }
+  }
+
+  return {
+    ok: true as const,
+    fields: parsedFields,
+  }
+}
+
 export function parseImportedWebhooks(input: string) {
   let parsedJson: unknown
 
