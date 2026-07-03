@@ -1,0 +1,13 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "RAILPACK",
+    "buildCommand": "npm install && npm run callback:build"
+  },
+  "deploy": {
+    "startCommand": "npm run callback:start",
+    "healthcheckPath": "/ready",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  }
+}

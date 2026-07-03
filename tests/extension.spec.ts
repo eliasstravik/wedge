@@ -160,6 +160,98 @@ test("settings can import multiple webhook configs into the CRUD list", async ()
   await page.close()
 })
 
+test("settings can create a callback-mode webhook with server-side destination config", async () => {
+  const page = await context.newPage()
+  await page.goto(extensionUrl("src/options/index.html"))
+
+  await page.getByRole("button", { name: "New webhook" }).click()
+  await page.getByLabel("Name", { exact: true }).fill("Callback leads")
+  await page.getByLabel("Delivery mode").click()
+  await page.getByRole("option", { name: "Wedge callback API" }).click()
+  await page.getByLabel("Callback API URL").fill("https://callback.example.com")
+  await page.getByLabel("Destination ID").fill("lead-review")
+  await page.getByRole("button", { name: "Add webhook" }).first().click()
+
+  await expect(page.getByText("Webhook created")).toBeVisible()
+  await expect(page.getByText("Callback leads", { exact: true })).toBeVisible()
+  await expect(page.getByText("Callback", { exact: true })).toBeVisible()
+  await expect(page.getByText("https://callback.example.com · lead-review")).toBeVisible()
+  await page.close()
+})
+
+test("popup renders callback results and clears local sessions", async () => {
+  const page = await context.newPage()
+  await page.goto(extensionUrl("src/popup/index.html"))
+
+  const now = new Date("2026-07-03T18:00:00.000Z").toISOString()
+  await page.evaluate((timestamp) => {
+    return chrome.storage.local.set({
+      "wedge.webhooks": [
+        {
+          id: "callback-webhook",
+          name: "Callback leads",
+          deliveryMode: "callback",
+          webhookUrl: "",
+          authenticationToken: "",
+          callbackBaseUrl: "https://callback.example.com",
+          callbackDestinationId: "lead-review",
+          isDefault: true,
+          fields: [
+            {
+              id: "field-url",
+              type: "builtin",
+              builtinKey: "url",
+              key: "url",
+              label: "Page URL",
+              required: true,
+            },
+          ],
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          lastTestStatus: "idle",
+        },
+      ],
+      "wedge.callbackSessions": [
+        {
+          sessionId: "session-ready",
+          readToken: "read-token",
+          expiresAt: 1780000600,
+          webhookId: "callback-webhook",
+          webhookName: "Callback leads",
+          callbackBaseUrl: "https://callback.example.com",
+          destinationId: "lead-review",
+          requestId: "request-ready",
+          status: "ready",
+          result: {
+            title: "Enrichment ready",
+            summary: "Verified company data.",
+            fields: [{ label: "Company", value: "Acme" }],
+            actions: [{ type: "copy_value", label: "Copy company", value: "Acme" }],
+          },
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      ],
+      "wedge.history": [],
+      "wedge.uiState": { lastSelectedWebhookId: "callback-webhook" },
+      "wedge.profile": [],
+      "wedge.schemaVersion": 6,
+    })
+  }, now)
+
+  await page.reload()
+
+  await expect(page.getByText("Enrichment ready")).toBeVisible()
+  await expect(page.getByText("Verified company data.")).toBeVisible()
+  await expect(page.getByText("Company", { exact: true })).toBeVisible()
+  await expect(page.getByText("Acme")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Copy company" })).toBeVisible()
+
+  await page.getByRole("button", { name: "Clear result" }).click()
+  await expect(page.getByText("This browser is ready for another send.")).toBeVisible()
+  await page.close()
+})
+
 async function addShortTextField(page: Page) {
   await page.getByRole("button", { name: "Add field" }).click()
   await page.getByRole("menuitem", { name: "Text", exact: true }).click()

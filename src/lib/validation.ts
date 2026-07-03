@@ -4,7 +4,7 @@ import {
   BUILTIN_FIELD_DEFINITIONS,
   toSnakeCase,
 } from "./webhook-fields"
-import { parseAndValidateUrl, randomId } from "./storage"
+import { parseAndValidateCallbackBaseUrl, parseAndValidateUrl, randomId } from "./storage"
 import type {
   BasicFieldType,
   BuiltinFieldKey,
@@ -40,15 +40,23 @@ const webhookDraftSchema = z.object({
     .trim()
     .min(1, "Enter a webhook name.")
     .max(80, "Keep the webhook name under 80 characters."),
+  deliveryMode: z.enum(["direct", "callback"]),
   webhookUrl: z
     .string()
     .trim()
-    .min(1, "Enter a webhook URL.")
     .max(2048, "Keep the webhook URL under 2048 characters."),
   authenticationToken: z
     .string()
     .trim()
     .max(2000, "Keep the authentication token under 2000 characters."),
+  callbackBaseUrl: z
+    .string()
+    .trim()
+    .max(2048, "Keep the callback API URL under 2048 characters."),
+  callbackDestinationId: z
+    .string()
+    .trim()
+    .max(120, "Keep the destination ID under 120 characters."),
   isDefault: z.boolean(),
 })
 
@@ -93,8 +101,11 @@ const webhookFieldSchema = z.discriminatedUnion("type", [
 const webhookConfigSchema = z.object({
   id: z.string(),
   name: z.string().trim().min(1),
-  webhookUrl: z.string().trim().min(1),
+  deliveryMode: z.enum(["direct", "callback"]).optional(),
+  webhookUrl: z.string().trim(),
   authenticationToken: z.string(),
+  callbackBaseUrl: z.string().trim().optional(),
+  callbackDestinationId: z.string().trim().optional(),
   isDefault: z.boolean(),
   fields: z.array(webhookFieldSchema).min(1),
   createdAt: z.string(),
@@ -113,8 +124,11 @@ export function validateWebhookDraft(
   const parsed = webhookDraftSchema.safeParse({
     ...draft,
     name: draft.name.trim(),
+    deliveryMode: draft.deliveryMode,
     webhookUrl: draft.webhookUrl.trim(),
     authenticationToken: draft.authenticationToken.trim(),
+    callbackBaseUrl: draft.callbackBaseUrl.trim(),
+    callbackDestinationId: draft.callbackDestinationId.trim(),
   })
 
   if (!parsed.success) {
@@ -124,14 +138,46 @@ export function validateWebhookDraft(
     }
   }
 
-  try {
-    parseAndValidateUrl(parsed.data.webhookUrl)
-  } catch (error) {
-    return {
-      ok: false as const,
-      fieldErrors: {
-        webhookUrl: error instanceof Error ? error.message : "Enter a valid webhook URL.",
-      },
+  if (parsed.data.deliveryMode === "direct") {
+    if (parsed.data.webhookUrl.length === 0) {
+      return {
+        ok: false as const,
+        fieldErrors: {
+          webhookUrl: "Enter a webhook URL.",
+        },
+      }
+    }
+
+    try {
+      parseAndValidateUrl(parsed.data.webhookUrl)
+    } catch (error) {
+      return {
+        ok: false as const,
+        fieldErrors: {
+          webhookUrl: error instanceof Error ? error.message : "Enter a valid webhook URL.",
+        },
+      }
+    }
+  } else {
+    if (parsed.data.callbackBaseUrl.length === 0) {
+      return {
+        ok: false as const,
+        fieldErrors: {
+          callbackBaseUrl: "Enter the Wedge callback API URL.",
+        },
+      }
+    }
+
+    try {
+      parseAndValidateCallbackBaseUrl(parsed.data.callbackBaseUrl)
+    } catch (error) {
+      return {
+        ok: false as const,
+        fieldErrors: {
+          callbackBaseUrl:
+            error instanceof Error ? error.message : "Enter a valid callback API URL.",
+        },
+      }
     }
   }
 
@@ -142,8 +188,11 @@ export function validateWebhookDraft(
     webhook: {
       id: parsed.data.id ?? existingWebhook?.id ?? randomId(),
       name: parsed.data.name,
+      deliveryMode: parsed.data.deliveryMode,
       webhookUrl: parsed.data.webhookUrl,
       authenticationToken: parsed.data.authenticationToken,
+      callbackBaseUrl: parsed.data.callbackBaseUrl,
+      callbackDestinationId: parsed.data.callbackDestinationId,
       isDefault: parsed.data.isDefault,
       fields: existingWebhook?.fields ?? [],
       createdAt: existingWebhook?.createdAt ?? now,
@@ -291,12 +340,27 @@ export function parseImportedWebhooks(input: string) {
       }
     }
 
-    try {
-      parseAndValidateUrl(result.data.webhookUrl)
-    } catch (error) {
-      return {
-        ok: false as const,
-        error: error instanceof Error ? error.message : "One imported webhook URL is invalid.",
+    const deliveryMode = result.data.deliveryMode ?? "direct"
+    if (deliveryMode === "direct") {
+      try {
+        parseAndValidateUrl(result.data.webhookUrl)
+      } catch (error) {
+        return {
+          ok: false as const,
+          error: error instanceof Error ? error.message : "One imported webhook URL is invalid.",
+        }
+      }
+    } else {
+      try {
+        parseAndValidateCallbackBaseUrl(result.data.callbackBaseUrl ?? "")
+      } catch (error) {
+        return {
+          ok: false as const,
+          error:
+            error instanceof Error
+              ? error.message
+              : "One imported callback API URL is invalid.",
+        }
       }
     }
 
@@ -313,6 +377,10 @@ export function parseImportedWebhooks(input: string) {
     nextWebhooks.push({
       ...result.data,
       id: randomId(),
+      deliveryMode,
+      webhookUrl: result.data.webhookUrl ?? "",
+      callbackBaseUrl: result.data.callbackBaseUrl ?? "",
+      callbackDestinationId: result.data.callbackDestinationId ?? "",
       fields: fieldsResult.fields,
       isDefault: false,
       createdAt: now,

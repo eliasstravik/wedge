@@ -2,10 +2,13 @@ import { startTransition, useEffect, useState } from "react"
 import {
   CheckCircle2Icon,
   ChevronDownIcon,
+  CopyIcon,
+  ExternalLinkIcon,
   GlobeIcon,
   LoaderCircleIcon,
   PlusIcon,
   SendHorizonalIcon,
+  XIcon,
   WebhookIcon,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -51,6 +54,8 @@ import {
 } from "@/lib/webhook-fields"
 import type {
   AppState,
+  CallbackResultAction,
+  CallbackSessionState,
   PageContext,
   PageSnapshot,
   WebhookConfig,
@@ -94,6 +99,10 @@ export function PopupApp() {
   const hasWebhooks = webhooks.length > 0
   const selectedWebhook =
     webhooks.find((webhook) => webhook.id === selectedWebhookId) ?? null
+  const selectedCallbackSession = getLatestCallbackSession(
+    appState?.callbackSessions ?? [],
+    selectedWebhookId
+  )
   const page = buildPageSnapshot(currentTab, pageContext)
   const isSupportedPage = page.url.startsWith("https://")
   const formErrors = selectedWebhook ? validateWebhookForm(selectedWebhook.fields, formValues) : {}
@@ -102,15 +111,76 @@ export function PopupApp() {
     ? JSON.stringify(buildFullPayload(selectedWebhook, formValues, profileFields), null, 2)
     : "{}"
 
-  const sendDisabledReason = !hasWebhooks
-    ? "Add a webhook in settings first."
-    : !selectedWebhook
-      ? "Choose a webhook before sending."
-      : !isSupportedPage
-        ? "Open a normal HTTPS page before sending."
-        : selectedWebhook.fields.length === 0
-          ? "Add payload fields in settings first."
-          : Object.values(formErrors)[0] ?? null
+  const sendDisabledReason = getSendDisabledReason({
+    hasWebhooks,
+    selectedWebhook,
+    isSupportedPage,
+    formErrors,
+    selectedCallbackSession,
+  })
+
+  useEffect(() => {
+    if (!selectedCallbackSession || selectedCallbackSession.status !== "pending") {
+      return
+    }
+
+    let cancelled = false
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+    async function poll() {
+      const sessionId = selectedCallbackSession?.sessionId
+      if (!sessionId || cancelled) {
+        return
+      }
+
+      try {
+        const response = (await chrome.runtime.sendMessage({
+          type: "wedge/poll-callback-session",
+          sessionId,
+        })) as BackgroundResponse | undefined
+
+        if (cancelled) {
+          return
+        }
+
+        if (response?.ok && response.callbackSession) {
+          const callbackSession = response.callbackSession
+          if (callbackSession.status === "pending") {
+            timeoutId = setTimeout(poll, 750)
+          } else {
+            setAppState((current) =>
+              current
+                ? {
+                    ...current,
+                    callbackSessions: upsertSessionInList(
+                      current.callbackSessions,
+                      callbackSession
+                    ),
+                  }
+                : current
+            )
+            toast.success(response.message)
+          }
+          return
+        }
+
+        timeoutId = setTimeout(poll, 1500)
+      } catch {
+        if (!cancelled) {
+          timeoutId = setTimeout(poll, 1500)
+        }
+      }
+    }
+
+    void poll()
+
+    return () => {
+      cancelled = true
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+    }
+  }, [selectedCallbackSession?.sessionId, selectedCallbackSession?.status])
 
   async function load(preferredWebhookId?: string) {
     setIsLoading(true)
@@ -206,13 +276,16 @@ export function PopupApp() {
       }
 
       setInlineStatus({
-        title: "Sent to Clay",
-        description: response.responseSnippet
-          ? "The webhook accepted the payload."
-          : "The current page was delivered successfully.",
+        title: selectedWebhook.deliveryMode === "callback" ? "Sent to callback service" : "Sent to Clay",
+        description:
+          selectedWebhook.deliveryMode === "callback"
+            ? "Waiting for Clay to post the enrichment result."
+            : response.responseSnippet
+              ? "The webhook accepted the payload."
+              : "The current page was delivered successfully.",
         tone: "default",
       })
-      toast.success("Sent to Clay", {
+      toast.success(selectedWebhook.deliveryMode === "callback" ? "Sent to callback service" : "Sent to Clay", {
         description: response.message,
       })
       await load(selectedWebhook.id)
@@ -224,6 +297,59 @@ export function PopupApp() {
         tone: "destructive",
       })
       toast.error("Send failed", {
+        description: "Could not reach the background service.",
+      })
+    }
+  }
+
+  async function handleClearCallbackSession(sessionId: string) {
+    try {
+      const response = (await chrome.runtime.sendMessage({
+        type: "wedge/clear-callback-session",
+        sessionId,
+      })) as BackgroundResponse | undefined
+
+      if (!response) {
+        toast.error("Clear failed", {
+          description: "Could not clear the local result.",
+        })
+        return
+      }
+
+      if (!response.ok) {
+        toast.error("Clear failed", {
+          description: response.error,
+        })
+        return
+      }
+
+      if (!response.callbackSession) {
+        toast.error("Clear failed", {
+          description: "Could not clear the local result.",
+        })
+        return
+      }
+
+      const callbackSession = response.callbackSession
+      setAppState((current) =>
+        current
+          ? {
+              ...current,
+              callbackSessions: upsertSessionInList(
+                current.callbackSessions,
+                callbackSession
+              ),
+            }
+          : current
+      )
+      setInlineStatus({
+        title: "Result cleared",
+        description: "This browser can send another callback request.",
+        tone: "default",
+      })
+      toast.success("Result cleared")
+    } catch {
+      toast.error("Clear failed", {
         description: "Could not reach the background service.",
       })
     }
@@ -350,6 +476,13 @@ export function PopupApp() {
               </Alert>
             ) : null}
 
+            {selectedWebhook?.deliveryMode === "callback" && selectedCallbackSession ? (
+              <CallbackSessionPanel
+                onClear={(sessionId) => void handleClearCallbackSession(sessionId)}
+                session={selectedCallbackSession}
+              />
+            ) : null}
+
             <Button
               className="w-full"
               disabled={Boolean(sendDisabledReason) || isSending}
@@ -367,6 +500,145 @@ export function PopupApp() {
         )}
       </main>
     </>
+  )
+}
+
+function CallbackSessionPanel({
+  session,
+  onClear,
+}: {
+  session: CallbackSessionState
+  onClear: (sessionId: string) => void
+}) {
+  if (session.status === "pending") {
+    return (
+      <Alert aria-live="polite">
+        <LoaderCircleIcon className="animate-spin" />
+        <AlertTitle>Waiting for enrichment</AlertTitle>
+        <AlertDescription className="flex flex-col gap-2">
+          <span>Clay has not posted the final result yet.</span>
+          <Button onClick={() => onClear(session.sessionId)} size="sm" variant="outline">
+            Clear
+          </Button>
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
+  if (session.status === "failed") {
+    return (
+      <Alert aria-live="polite" variant="destructive">
+        <XIcon />
+        <AlertTitle>Enrichment failed</AlertTitle>
+        <AlertDescription className="flex flex-col gap-2">
+          <span>{session.errorCode ?? "Clay returned a failed callback."}</span>
+          <Button onClick={() => onClear(session.sessionId)} size="sm" variant="outline">
+            Clear
+          </Button>
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
+  if (session.status === "expired") {
+    return (
+      <Alert aria-live="polite">
+        <XIcon />
+        <AlertTitle>Enrichment expired</AlertTitle>
+        <AlertDescription className="flex flex-col gap-2">
+          <span>Clay did not post a result before this session expired.</span>
+          <Button onClick={() => onClear(session.sessionId)} size="sm" variant="outline">
+            Clear
+          </Button>
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
+  if (session.status === "cleared") {
+    return (
+      <Alert aria-live="polite">
+        <CheckCircle2Icon />
+        <AlertTitle>Result cleared</AlertTitle>
+        <AlertDescription>This browser is ready for another send.</AlertDescription>
+      </Alert>
+    )
+  }
+
+  const result = session.result
+  if (!result) {
+    return null
+  }
+
+  return (
+    <section className="flex flex-col gap-3 rounded-lg border bg-muted/20 p-3" aria-live="polite">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold leading-5">{result.title}</h2>
+          {result.summary ? (
+            <p className="mt-1 text-sm text-muted-foreground">{result.summary}</p>
+          ) : null}
+        </div>
+        <Button aria-label="Clear result" onClick={() => onClear(session.sessionId)} size="icon-sm" variant="ghost">
+          <XIcon />
+        </Button>
+      </div>
+
+      {result.entity ? (
+        <div className="rounded-md border bg-background p-2 text-xs">
+          <p className="font-medium">{result.entity.name ?? result.entity.domain ?? result.entity.url}</p>
+          {result.entity.type || result.entity.domain ? (
+            <p className="text-muted-foreground">
+              {[result.entity.type, result.entity.domain].filter(Boolean).join(" · ")}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {result.fields && result.fields.length > 0 ? (
+        <dl className="grid grid-cols-1 gap-2">
+          {result.fields.map((field) => (
+            <div className="rounded-md border bg-background p-2" key={`${field.label}:${String(field.value)}`}>
+              <dt className="text-xs font-medium text-muted-foreground">{field.label}</dt>
+              <dd className="mt-0.5 break-words text-sm">{formatCallbackValue(field.value)}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
+      {result.actions && result.actions.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {result.actions.map((action) => (
+            <CallbackActionButton action={action} key={`${action.type}:${action.label}`} />
+          ))}
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
+function CallbackActionButton({ action }: { action: CallbackResultAction }) {
+  if (action.type === "open_url") {
+    return (
+      <Button onClick={() => void chrome.tabs.create({ url: action.url })} size="sm" variant="outline">
+        <ExternalLinkIcon data-icon="inline-start" />
+        {action.label}
+      </Button>
+    )
+  }
+
+  return (
+    <Button
+      onClick={() => {
+        void navigator.clipboard.writeText(action.value)
+        toast.success("Copied")
+      }}
+      size="sm"
+      variant="outline"
+    >
+      <CopyIcon data-icon="inline-start" />
+      {action.label}
+    </Button>
   )
 }
 
@@ -556,6 +828,88 @@ function buildFullPayload(webhook: WebhookConfig, values: WebhookFormValues, pro
     return { ...payload, profile }
   }
   return payload
+}
+
+function getLatestCallbackSession(sessions: CallbackSessionState[], webhookId: string) {
+  return (
+    sessions
+      .filter((session) => session.webhookId === webhookId)
+      .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))[0] ?? null
+  )
+}
+
+function getCallbackSendDisabledReason(session: CallbackSessionState | null) {
+  if (!session) {
+    return null
+  }
+
+  if (session.status === "pending") {
+    return "Wait for the pending callback result before sending again."
+  }
+
+  if (session.status === "ready") {
+    return "Clear the callback result before sending again."
+  }
+
+  return null
+}
+
+function getSendDisabledReason({
+  hasWebhooks,
+  selectedWebhook,
+  isSupportedPage,
+  formErrors,
+  selectedCallbackSession,
+}: {
+  hasWebhooks: boolean
+  selectedWebhook: WebhookConfig | null
+  isSupportedPage: boolean
+  formErrors: Record<string, string>
+  selectedCallbackSession: CallbackSessionState | null
+}) {
+  if (!hasWebhooks) {
+    return "Add a webhook in settings first."
+  }
+
+  if (!selectedWebhook) {
+    return "Choose a webhook before sending."
+  }
+
+  if (!isSupportedPage) {
+    return "Open a normal HTTPS page before sending."
+  }
+
+  if (selectedWebhook.fields.length === 0) {
+    return "Add payload fields in settings first."
+  }
+
+  if (selectedWebhook.deliveryMode === "callback") {
+    const callbackDisabledReason = getCallbackSendDisabledReason(selectedCallbackSession)
+    if (callbackDisabledReason) {
+      return callbackDisabledReason
+    }
+  }
+
+  return Object.values(formErrors)[0] ?? null
+}
+
+function upsertSessionInList(sessions: CallbackSessionState[], nextSession: CallbackSessionState) {
+  const exists = sessions.some((session) => session.sessionId === nextSession.sessionId)
+  return exists
+    ? sessions.map((session) => (session.sessionId === nextSession.sessionId ? nextSession : session))
+    : [nextSession, ...sessions]
+}
+
+function formatCallbackValue(value: string | number | boolean | null) {
+  if (value === null) {
+    return "Empty"
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No"
+  }
+
+  return String(value)
 }
 
 async function openSettingsPage(target: "root" | "create" | { webhookId: string }) {

@@ -2,8 +2,11 @@ import type { WebhookConfig, WebhookDraft } from "./types"
 
 const EMPTY_WEBHOOK_DRAFT: WebhookDraft = {
   name: "",
+  deliveryMode: "direct",
   webhookUrl: "",
   authenticationToken: "",
+  callbackBaseUrl: "",
+  callbackDestinationId: "",
   isDefault: true,
 }
 
@@ -22,8 +25,11 @@ export function toWebhookDraft(webhook: WebhookConfig | null): WebhookDraft {
   return {
     id: webhook.id,
     name: webhook.name,
+    deliveryMode: webhook.deliveryMode,
     webhookUrl: webhook.webhookUrl,
     authenticationToken: webhook.authenticationToken,
+    callbackBaseUrl: webhook.callbackBaseUrl,
+    callbackDestinationId: webhook.callbackDestinationId,
     isDefault: webhook.isDefault,
   }
 }

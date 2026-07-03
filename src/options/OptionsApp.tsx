@@ -1083,41 +1083,107 @@ function WebhookEditorView({
           <FieldError>{fieldErrors.name}</FieldError>
         </Field>
 
-        <Field data-invalid={Boolean(fieldErrors.webhookUrl) || undefined}>
-          <FieldLabel htmlFor="webhookUrl">Webhook URL</FieldLabel>
-          <Input
-            aria-invalid={Boolean(fieldErrors.webhookUrl) || undefined}
-            id="webhookUrl"
-            onChange={(event) => {
-              const value = event.currentTarget.value
-              setWebhookDraft((current) => ({ ...current, webhookUrl: value }))
+        <Field>
+          <FieldLabel htmlFor="deliveryMode">Delivery mode</FieldLabel>
+          <Select
+            onValueChange={(value) => {
+              setWebhookDraft((current) => ({
+                ...current,
+                deliveryMode: value === "callback" ? "callback" : "direct",
+              }))
             }}
-            placeholder="https://api.clay.com/..."
-            type="url"
-            value={webhookDraft.webhookUrl}
-          />
-          <FieldDescription>Only HTTPS URLs are supported.</FieldDescription>
-          <FieldError>{fieldErrors.webhookUrl}</FieldError>
+            value={webhookDraft.deliveryMode}
+          >
+            <SelectTrigger id="deliveryMode">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="direct">Direct to Clay</SelectItem>
+                <SelectItem value="callback">Wedge callback API</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </Field>
 
-        <Field data-invalid={Boolean(fieldErrors.authenticationToken) || undefined}>
-          <FieldLabel htmlFor="authenticationToken">Authentication token</FieldLabel>
-          <Input
-            aria-invalid={Boolean(fieldErrors.authenticationToken) || undefined}
-            id="authenticationToken"
-            onChange={(event) => {
-              const value = event.currentTarget.value
-              setWebhookDraft((current) => ({ ...current, authenticationToken: value }))
-            }}
-            placeholder="Optional"
-            type="password"
-            value={webhookDraft.authenticationToken}
-          />
-          <FieldDescription>
-            Optional. Stored locally in this browser.
-          </FieldDescription>
-          <FieldError>{fieldErrors.authenticationToken}</FieldError>
-        </Field>
+        {webhookDraft.deliveryMode === "direct" ? (
+          <>
+            <Field data-invalid={Boolean(fieldErrors.webhookUrl) || undefined}>
+              <FieldLabel htmlFor="webhookUrl">Webhook URL</FieldLabel>
+              <Input
+                aria-invalid={Boolean(fieldErrors.webhookUrl) || undefined}
+                id="webhookUrl"
+                onChange={(event) => {
+                  const value = event.currentTarget.value
+                  setWebhookDraft((current) => ({ ...current, webhookUrl: value }))
+                }}
+                placeholder="https://api.clay.com/..."
+                type="url"
+                value={webhookDraft.webhookUrl}
+              />
+              <FieldDescription>Only HTTPS URLs are supported.</FieldDescription>
+              <FieldError>{fieldErrors.webhookUrl}</FieldError>
+            </Field>
+
+            <Field data-invalid={Boolean(fieldErrors.authenticationToken) || undefined}>
+              <FieldLabel htmlFor="authenticationToken">Authentication token</FieldLabel>
+              <Input
+                aria-invalid={Boolean(fieldErrors.authenticationToken) || undefined}
+                id="authenticationToken"
+                onChange={(event) => {
+                  const value = event.currentTarget.value
+                  setWebhookDraft((current) => ({ ...current, authenticationToken: value }))
+                }}
+                placeholder="Optional"
+                type="password"
+                value={webhookDraft.authenticationToken}
+              />
+              <FieldDescription>
+                Optional. Stored locally in this browser.
+              </FieldDescription>
+              <FieldError>{fieldErrors.authenticationToken}</FieldError>
+            </Field>
+          </>
+        ) : (
+          <>
+            <Field data-invalid={Boolean(fieldErrors.callbackBaseUrl) || undefined}>
+              <FieldLabel htmlFor="callbackBaseUrl">Callback API URL</FieldLabel>
+              <Input
+                aria-invalid={Boolean(fieldErrors.callbackBaseUrl) || undefined}
+                id="callbackBaseUrl"
+                onChange={(event) => {
+                  const value = event.currentTarget.value
+                  setWebhookDraft((current) => ({ ...current, callbackBaseUrl: value }))
+                }}
+                placeholder="https://wedge-callback.example.com"
+                type="url"
+                value={webhookDraft.callbackBaseUrl}
+              />
+              <FieldDescription>
+                The extension sends only payload data and a destination ID to this API.
+              </FieldDescription>
+              <FieldError>{fieldErrors.callbackBaseUrl}</FieldError>
+            </Field>
+
+            <Field data-invalid={Boolean(fieldErrors.callbackDestinationId) || undefined}>
+              <FieldLabel htmlFor="callbackDestinationId">Destination ID</FieldLabel>
+              <Input
+                aria-invalid={Boolean(fieldErrors.callbackDestinationId) || undefined}
+                id="callbackDestinationId"
+                onChange={(event) => {
+                  const value = event.currentTarget.value
+                  setWebhookDraft((current) => ({ ...current, callbackDestinationId: value }))
+                }}
+                placeholder="default"
+                value={webhookDraft.callbackDestinationId}
+              />
+              <FieldDescription>
+                Resolved by <code className="rounded bg-muted px-1 py-0.5 text-xs">WEDGE_CALLBACK_DESTINATIONS</code>.
+              </FieldDescription>
+              <FieldError>{fieldErrors.callbackDestinationId}</FieldError>
+            </Field>
+          </>
+        )}
       </FieldGroup>
 
       <Separator />
@@ -1128,7 +1194,7 @@ function WebhookEditorView({
             <h2>Payload builder</h2>
           </CardTitle>
           <CardDescription>
-            Add built-in page fields or Tally-style custom inputs. Keys are saved in snake_case and shown exactly as they will be sent.
+            Add built-in page fields or custom inputs. Keys are saved in snake_case and shown exactly as they will be sent.
           </CardDescription>
           <CardAction>
             <DropdownMenu>

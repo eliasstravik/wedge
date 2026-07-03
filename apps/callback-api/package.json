@@ -1,0 +1,24 @@
+{
+  "name": "@wedge/callback-api",
+  "version": "0.1.0",
+  "description": "Wedge callback API for Clay enrichment result sessions.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "WEDGE_CALLBACK_ENV=development bun --watch src/server.ts",
+    "start": "bun run src/server.ts",
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.10.7",
+    "ioredis": "^5.8.2",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.8"
+  }
+}
