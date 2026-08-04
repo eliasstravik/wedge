@@ -74,10 +74,6 @@ docs/             # Architecture and planning docs
 - Make sure all checks pass (typecheck, build, tests)
 - Update documentation if your change affects user-facing behavior
 
-## Architecture
-
-For a deeper look at the architecture and design decisions, see [`docs/chrome-extension-clay-webhook-plan.md`](docs/chrome-extension-clay-webhook-plan.md).
-
 ## Security
 
 If you discover a security vulnerability, please see [SECURITY.md](SECURITY.md) for reporting instructions.
