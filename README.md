@@ -1,94 +1,99 @@
-<p align="center">
-  <img src="src/assets/brand.png" width="80" alt="Wedge logo" />
-</p>
+<p align="center"><img src="https://img.shields.io/badge/Wedge-Chrome%20extension%20for%20Clay%20prospecting-2ea44f?style=flat-square&labelColor=24292f" alt="Wedge — Chrome extension for Clay prospecting" /></p>
 
-<h1 align="center">Wedge</h1>
+<h3 align="center">Keep prospecting without breaking focus or building a copy-paste backlog</h3>
 
-<p align="center">
-  Chrome extension for sending data to Clay.
-</p>
+<p align="center">Wedge lets you capture a promising account or contact while it is still on screen when manual entry would break your prospecting flow, by sending the page context and your notes into a saved Clay workflow that can enrich the record and route it to your CRM or outbound campaign.</p>
 
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
-  <a href="https://github.com/eliasstravik/wedge/actions/workflows/ci.yml"><img src="https://github.com/eliasstravik/wedge/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-</p>
+<p align="center"><img src="assets/wedge-prospecting-flow.svg" width="88%" alt="A prospect page flows through Wedge into a Clay workflow" /></p>
 
----
+<p align="center"><a href="https://github.com/eliasstravik/wedge/blob/main/docs/getting-started.md"><img src="assets/buttons/get-the-chrome-extension.svg" alt="Get the Chrome extension" /></a>&nbsp;&nbsp;<a href="https://cal.com/stravik/demo?projects=Wedge" target="_blank" rel="noopener noreferrer"><img src="assets/buttons/book-a-demo.svg" alt="Book a demo" /></a></p>
 
-## Install
+<p align="center"><sub>✓&nbsp;100%&nbsp;free&nbsp;and&nbsp;open&nbsp;source &nbsp; ✓&nbsp;No&nbsp;backend&nbsp;or&nbsp;Wedge&nbsp;account &nbsp; ✓&nbsp;Built&nbsp;for&nbsp;Clay-powered&nbsp;prospecting</sub></p>
 
-### Quick install (no build required)
+<p align="center"><small>⭐ Used by top sales reps</small></p>
 
-1. Download `wedge-vX.Y.Z.zip` from the [latest release](https://github.com/eliasstravik/wedge/releases/latest)
-2. Unzip the file
-3. Open `chrome://extensions` in Chrome
-4. Enable **Developer mode** (top-right toggle)
-5. Click **Load unpacked** and select the unzipped folder
+<br />
 
-### Build from source
+## Stay in the prospecting flow from first page to finished list
 
-```bash
-git clone https://github.com/eliasstravik/wedge.git
-cd wedge
-npm install
-npm run build
-```
+Promising prospects enter Clay while the context is fresh, where your workflow can enrich them and route them into the right CRM list or outbound campaign. You finish the session with follow-up already moving instead of a bookmark folder to process.
 
-Then load `dist/` as an unpacked extension (steps 3-5 above).
+## Choose between copy-paste, bookmark backlogs, custom extensions — or capturing the prospect from the page you're on
 
-## Features
+| | **Wedge** | Manual copy-paste | Generic form tools | Custom extension |
+|---|:---:|:---:|:---:|:---:|
+| **Free software** | ✅ | ✅ | ❌ | ✅ |
+| **No code needed** | ✅ | ✅ | ✅ | ❌ |
+| **No third-party form service** | ✅ | ✅ | ❌ | ✅ |
+| **Captures from the source page** | ✅ | ❌ | ❌ | ✅ |
+| **Reusable prospecting forms** | ✅ | ❌ | ✅ | ✅ |
+| **Local configuration and history** | ✅ | ❌ | ❌ | ✅ |
+| **Autofills prospect context** | ✅ | ❌ | ❌ | ✅ |
+| **Review before enrichment** | ✅ | ❌ | ❌ | ✅ |
+| **Routes to multiple Clay workflows** | ✅ | ❌ | ❌ | ✅ |
 
-- **Popup send flow** — select a webhook, fill in fields, preview the JSON payload, and send
-- **Page autofill** — automatically captures URL, title, description, canonical URL, og:title, selected text, and hostname
-- **Custom fields** — add text, number, email, phone, date, dropdown, multi-select, rating, matrix, ranking, and more
-- **Hardcoded fields** — lock any custom field to a fixed value so the popup shows it as read-only and always sends the configured payload value
-- **Global profile** — add sender identity fields (name, email, CRM user ID, etc.) once and have them included under a `profile` key with every webhook automatically
-- **Multi-webhook support** — configure multiple Clay webhooks with independent payload schemas
-- **Settings workspace** — full webhook CRUD, payload field editor, drag-and-drop ordering, and test sends
-- **Import / export** — share webhook configurations as JSON across your team
-- **Activity history** — local log of sent and failed deliveries with timestamps and error details
-- **Secure by default** — HTTPS-only delivery, private IP blocking, optional auth tokens, minimal permissions
+Capture the lead while you're browsing. Wedge fills the repeated fields, you add any important notes, and Clay receives the context it needs for enrichment and routing.
 
-## Development
+## Capture a company or contact while you’re browsing. Get it enriched and routed through Clay in seconds.
 
-```bash
-npm install
-npm run dev
-```
+### 📈 Capture prospects as you browse
+Capture the company or contact while it is still on screen. Wedge sends the context to Clay, where your workflow can enrich it and route it to your CRM or outbound campaign.
 
-Load the `dist/` folder as an unpacked extension in Chrome. The Vite dev server supports hot reload.
+### ⚡ Let Wedge fill the details you'd otherwise copy
+Saved forms and fixed fields keep recurring values in place. You add what changed, then send the prospect into the right Clay workflow.
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start dev server with hot reload |
-| `npm run build` | Type-check and production build |
-| `npm run typecheck` | TypeScript type checking only |
-| `npm test` | Build and run Playwright E2E tests |
+### 💬 Update the pipeline without switching tabs
+Capture from the source page. Clay can enrich the record and move it into the CRM list or outbound campaign you configured.
 
-## Architecture
+## Capture your first prospect in five minutes
 
-Built with React 19, TypeScript, Tailwind CSS 4, and shadcn/ui. Uses Vite with the [CRX plugin](https://crxjs.dev/vite-plugin) for Chrome Extension Manifest V3 bundling.
+<table>
+<tr>
+<td align="center" valign="top" width="33%"><h3>1️⃣</h3><b>Install Wedge</b><br /><sub>Download the latest release, unzip it, and load the folder in Chrome's Developer mode.</sub></td>
+<td align="center" valign="top" width="33%"><h3>2️⃣</h3><b>Connect a sales workflow</b><br /><sub>Paste its Clay webhook URL, then choose the prospect details that workflow needs for enrichment and routing.</sub></td>
+<td align="center" valign="top" width="33%"><h3>3️⃣</h3><b>Capture a prospect</b><br /><sub>Open a company, contact, or signal page, check the context, and send it into the Clay workflow you chose.</sub></td>
+</tr>
+</table>
 
-```
-src/
-  popup/           Popup UI
-  options/         Settings page
-  background.ts    Service worker (webhook delivery)
-  contentScript.ts Page metadata extraction
-  lib/             Types, storage, validation, utilities
-  components/      Reusable UI components
-```
+## Choose how to get started
 
-See [`docs/chrome-extension-clay-webhook-plan.md`](docs/chrome-extension-clay-webhook-plan.md) for the full architecture plan.
+<table>
+<tr>
+<td align="center" valign="top" width="50%"><h3>Self-serve</h3><sub>For sales reps and GTM teams with Clay workflows</sub><br /><h2>Free</h2><div align="left">&nbsp;&nbsp;&nbsp;✓&nbsp; Multiple Clay prospecting workflows<br />&nbsp;&nbsp;&nbsp;✓&nbsp; Automatic page context and selected evidence<br />&nbsp;&nbsp;&nbsp;✓&nbsp; Custom, fixed, and rep profile fields<br />&nbsp;&nbsp;&nbsp;✓&nbsp; Review every prospect before sending<br />&nbsp;&nbsp;&nbsp;✓&nbsp; Local activity history and errors<br />&nbsp;&nbsp;&nbsp;✓&nbsp; Import and export reusable team setups</div></td>
+<td align="center" valign="top" width="50%"><h3>Done-with-you</h3><sub>Hands-on setup and ongoing support for your sales team</sub><br /><h2>Let's talk</h2><div align="left">&nbsp;&nbsp;&nbsp;✓&nbsp; Everything in self-serve<br />&nbsp;&nbsp;&nbsp;✓&nbsp; Full setup and installation<br />&nbsp;&nbsp;&nbsp;✓&nbsp; Clay webhook and authentication configuration<br />&nbsp;&nbsp;&nbsp;✓&nbsp; Capture forms configured for your team<br />&nbsp;&nbsp;&nbsp;✓&nbsp; Team rollout, training, and best practices<br />&nbsp;&nbsp;&nbsp;✓&nbsp; Ongoing maintenance and upgrades<br />&nbsp;&nbsp;&nbsp;✓&nbsp; Dedicated Slack channel support</div></td>
+</tr>
+<tr>
+<td align="center"><a href="https://github.com/eliasstravik/wedge/blob/main/docs/getting-started.md"><img src="assets/buttons/get-the-chrome-extension.svg" alt="Get the Chrome extension" /></a></td>
+<td align="center"><a href="https://cal.com/stravik/demo?projects=Wedge" target="_blank" rel="noopener noreferrer"><img src="assets/buttons/book-a-demo.svg" alt="Book a demo" /></a></td>
+</tr>
+</table>
 
-## Contributing
+## Get your questions answered
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+### Do I need to know how to code?
+No. Download the latest release and load it as an unpacked Chrome extension. Building from source is optional.
 
-## Security
+### Do I need to run a backend?
+No. Wedge posts directly from the extension to the Clay webhook you configure.
 
-See [SECURITY.md](SECURITY.md) for the security model and how to report vulnerabilities.
+### What leaves my browser?
+Only the payload you preview and the optional Clay authentication header are sent when you click Send. Your webhook configs, tokens, schemas, and activity history stay in Chrome's local extension storage.
 
-## License
+### Can I choose exactly what gets sent?
+Yes. Build each sales workflow's capture form from page fields, selected text, custom inputs, dropdowns, checkboxes, fixed values, and rep profile fields, then review the prospect before sending.
 
-[MIT](LICENSE)
+### Can I route prospects to more than one sales workflow?
+Yes. Save multiple Clay webhooks with independent capture forms, choose a default, and switch between account, contact, signal, or other destinations from the popup.
+
+### Can I share a setup with my team?
+Yes. Export one webhook or all of them as JSON, with tokens excluded unless you explicitly include them, then import the config in another browser.
+
+## Capture your first prospect in five minutes
+
+<p align="center">A prospect can enter Clay for enrichment and routing in about five minutes for free. Wedge captures the repeated context. You add any important notes and click Send.</p>
+
+<p align="center"><a href="https://github.com/eliasstravik/wedge/blob/main/docs/getting-started.md"><img src="assets/buttons/get-the-chrome-extension.svg" alt="Get the Chrome extension" /></a>&nbsp;&nbsp;<a href="https://cal.com/stravik/demo?projects=Wedge" target="_blank" rel="noopener noreferrer"><img src="assets/buttons/book-a-demo.svg" alt="Book a demo" /></a></p>
+
+<p align="center"><sub>✓&nbsp;100%&nbsp;free&nbsp;and&nbsp;open&nbsp;source &nbsp; ✓&nbsp;No&nbsp;backend&nbsp;or&nbsp;Wedge&nbsp;account &nbsp; ✓&nbsp;Built&nbsp;for&nbsp;Clay-powered&nbsp;prospecting</sub></p>
+
+<p align="center"><small>⭐ Used by top sales reps</small></p>

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="500" viewBox="0 0 960 500" role="img" aria-labelledby="title desc">
+  <title id="title">Wedge prospecting flow</title>
+  <desc id="desc">A prospect page flows through Wedge into Clay enrichment and onward to a CRM or outbound campaign.</desc>
+  <rect width="960" height="500" rx="20" fill="#f6f8fa"/>
+  <rect x="28" y="28" width="904" height="444" rx="14" fill="#ffffff" stroke="#d0d7de" stroke-width="2"/>
+  <circle cx="54" cy="54" r="6" fill="#ff7b72"/><circle cx="74" cy="54" r="6" fill="#f2cc60"/><circle cx="94" cy="54" r="6" fill="#56d364"/>
+  <rect x="124" y="43" width="420" height="22" rx="11" fill="#eef1f4"/>
+
+  <rect x="58" y="100" width="250" height="324" rx="12" fill="#ffffff" stroke="#d0d7de" stroke-width="2"/>
+  <rect x="78" y="124" width="96" height="12" rx="6" fill="#0969da" opacity=".3"/>
+  <rect x="78" y="154" width="198" height="18" rx="5" fill="#24292f"/>
+  <rect x="78" y="186" width="174" height="9" rx="4" fill="#afb8c1"/>
+  <rect x="78" y="205" width="204" height="9" rx="4" fill="#afb8c1"/>
+  <rect x="78" y="224" width="162" height="9" rx="4" fill="#afb8c1"/>
+  <rect x="78" y="266" width="204" height="72" rx="8" fill="#fff8c5" stroke="#d4a72c"/>
+  <text x="180" y="295" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="600" fill="#633c01">Select the buying signal</text>
+  <text x="180" y="318" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#633c01">on the prospect page</text>
+  <text x="183" y="397" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#24292f">1. Find prospect</text>
+
+  <path d="M324 262h48" stroke="#8c959f" stroke-width="3" stroke-linecap="round"/><path d="m362 252 12 10-12 10" fill="none" stroke="#8c959f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="388" y="100" width="210" height="324" rx="14" fill="#ffffff" stroke="#d0d7de" stroke-width="2"/>
+  <circle cx="420" cy="132" r="16" fill="#f5a97f"/><circle cx="438" cy="132" r="16" fill="#f6c85f"/><circle cx="429" cy="148" r="16" fill="#42b7d8"/>
+  <text x="493" y="140" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="18" font-weight="700" fill="#24292f">Wedge</text>
+  <rect x="410" y="174" width="166" height="32" rx="7" fill="#f6f8fa" stroke="#d0d7de"/>
+  <text x="424" y="195" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#57606a">Clay prospecting</text>
+  <rect x="410" y="220" width="166" height="16" rx="4" fill="#eaeef2"/>
+  <rect x="410" y="248" width="166" height="16" rx="4" fill="#eaeef2"/>
+  <rect x="410" y="276" width="166" height="58" rx="6" fill="#f6f8fa" stroke="#d0d7de"/>
+  <text x="422" y="298" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" fill="#57606a">Account + contact</text>
+  <text x="422" y="316" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" fill="#57606a">Signal + rep note</text>
+  <rect x="410" y="350" width="166" height="38" rx="8" fill="#2ea44f"/>
+  <text x="493" y="374" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#ffffff">Send webhook</text>
+  <text x="493" y="409" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#24292f">2. Review lead</text>
+
+  <path d="M614 262h48" stroke="#8c959f" stroke-width="3" stroke-linecap="round"/><path d="m652 252 12 10-12 10" fill="none" stroke="#8c959f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="678" y="100" width="224" height="324" rx="12" fill="#ffffff" stroke="#d0d7de" stroke-width="2"/>
+  <rect x="698" y="124" width="184" height="34" rx="7" fill="#f6f8fa"/>
+  <text x="790" y="146" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="18" font-weight="700" fill="#24292f">Clay</text>
+  <rect x="698" y="176" width="184" height="34" fill="#ddf4ff" stroke="#54aeff"/>
+  <rect x="698" y="210" width="184" height="34" fill="#ffffff" stroke="#d8dee4"/>
+  <rect x="698" y="244" width="184" height="34" fill="#ffffff" stroke="#d8dee4"/>
+  <rect x="698" y="278" width="184" height="34" fill="#ffffff" stroke="#d8dee4"/>
+  <path d="M760 176v136M824 176v136" stroke="#d8dee4"/>
+  <circle cx="714" cy="193" r="6" fill="#1a7f37"/>
+  <rect x="728" y="188" width="118" height="9" rx="4" fill="#54aeff" opacity=".55"/>
+  <text x="790" y="397" text-anchor="middle" font-family="-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#24292f">3. Enrich + route</text>
+</svg>
