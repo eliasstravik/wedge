@@ -1,6 +1,9 @@
 import { BUILTIN_FIELD_DEFINITIONS, createDefaultWebhookFields, toSnakeCase } from "./webhook-fields"
 import type {
   AppState,
+  CallbackResult,
+  CallbackSessionState,
+  CallbackSessionStatus,
   Diagnostics,
   ErrorCode,
   HistoryEntry,
@@ -15,6 +18,7 @@ export const STORAGE_KEYS = {
   HISTORY: "wedge.history",
   UI_STATE: "wedge.uiState",
   PROFILE: "wedge.profile",
+  CALLBACK_SESSIONS: "wedge.callbackSessions",
   SCHEMA_VERSION: "wedge.schemaVersion",
 } as const
 
@@ -22,13 +26,14 @@ const LEGACY_STORAGE_KEYS = {
   DESTINATIONS: "wedge.destinations",
 } as const
 
-export const CURRENT_SCHEMA_VERSION = 5
+export const CURRENT_SCHEMA_VERSION = 6
 export const CLAY_WEBHOOK_AUTH_HEADER = "x-clay-webhook-auth"
 
 export const DEFAULT_UI_STATE: UIState = {}
 
 const EMPTY_HISTORY: HistoryEntry[] = []
 const EMPTY_WEBHOOKS: WebhookConfig[] = []
+const EMPTY_CALLBACK_SESSIONS: CallbackSessionState[] = []
 
 const stateStorageKeys = [
   ...Object.values(STORAGE_KEYS),
@@ -58,9 +63,92 @@ export async function saveHistory(history: HistoryEntry[]) {
   })
 }
 
+export async function saveCallbackSessions(callbackSessions: CallbackSessionState[]) {
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.CALLBACK_SESSIONS]: callbackSessions.slice(0, 25),
+  })
+}
+
 export async function pushHistory(entry: HistoryEntry) {
   const { history } = await getAppState()
   await saveHistory([entry, ...history].slice(0, 100))
+}
+
+export async function upsertCallbackSession(nextSession: CallbackSessionState) {
+  const { callbackSessions } = await getAppState()
+  const exists = callbackSessions.some((session) => session.sessionId === nextSession.sessionId)
+  const nextSessions = exists
+    ? callbackSessions.map((session) =>
+        session.sessionId === nextSession.sessionId ? nextSession : session
+      )
+    : [nextSession, ...callbackSessions]
+
+  await saveCallbackSessions(nextSessions)
+}
+
+export async function updateCallbackSessionStatus(
+  sessionId: string,
+  patch: {
+    status: CallbackSessionStatus
+    result?: CallbackResult
+    errorCode?: string
+  }
+): Promise<CallbackSessionState | null> {
+  const { callbackSessions } = await getAppState()
+  const now = new Date().toISOString()
+  let updated: CallbackSessionState | null = null
+  let didChange = false
+  const nextSessions = callbackSessions.map((session) => {
+    if (session.sessionId !== sessionId) {
+      return session
+    }
+
+    if (
+      session.status === patch.status &&
+      patch.result === undefined &&
+      patch.errorCode === undefined
+    ) {
+      updated = session
+      return session
+    }
+
+    didChange = true
+    updated = {
+      ...session,
+      status: patch.status,
+      result: patch.result ?? session.result,
+      errorCode: patch.errorCode,
+      updatedAt: now,
+    }
+    return updated
+  })
+
+  if (didChange) {
+    await saveCallbackSessions(nextSessions)
+  }
+  return updated
+}
+
+export async function clearCallbackSession(sessionId: string): Promise<CallbackSessionState | null> {
+  const { callbackSessions } = await getAppState()
+  const now = new Date().toISOString()
+  let cleared: CallbackSessionState | null = null
+  const nextSessions = callbackSessions.map((session) => {
+    if (session.sessionId !== sessionId) {
+      return session
+    }
+
+    cleared = {
+      ...session,
+      status: "cleared",
+      updatedAt: now,
+      clearedAt: now,
+    }
+    return cleared
+  })
+
+  await saveCallbackSessions(nextSessions)
+  return cleared
 }
 
 export async function saveUiState(uiState: Partial<UIState>) {
@@ -171,6 +259,25 @@ export function parseAndValidateUrl(url: string) {
   return parsed
 }
 
+export function parseAndValidateCallbackBaseUrl(url: string) {
+  let parsed: URL
+
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new Error("Enter a valid callback API URL.")
+  }
+
+  if (parsed.protocol !== "https:" && !isLocalDevOrigin(parsed)) {
+    throw new Error("Use HTTPS for the callback API URL, except local development.")
+  }
+
+  parsed.pathname = parsed.pathname.replace(/\/+$/, "")
+  parsed.search = ""
+  parsed.hash = ""
+  return parsed
+}
+
 const BLOCKED_IPV4_PATTERNS = [
   /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/,
   /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/,
@@ -204,6 +311,15 @@ function isBlockedHost(hostname: string) {
   }
 
   return false
+}
+
+function isLocalDevOrigin(url: URL) {
+  return (
+    url.protocol === "http:" &&
+    (url.hostname === "localhost" ||
+      url.hostname === "127.0.0.1" ||
+      url.hostname === "[::1]")
+  )
 }
 
 function extractMappedIPv4(hostname: string): string | null {
@@ -248,18 +364,21 @@ function normalizeStorage(raw: Record<string, unknown>) {
   const history = normalizeHistory(raw[STORAGE_KEYS.HISTORY])
   const uiState = normalizeUiState(raw[STORAGE_KEYS.UI_STATE])
   const profileFields = normalizeProfileFields(raw[STORAGE_KEYS.PROFILE]) ?? []
+  const callbackSessions = normalizeCallbackSessions(raw[STORAGE_KEYS.CALLBACK_SESSIONS])
   const schemaVersion = Number(raw[STORAGE_KEYS.SCHEMA_VERSION] ?? 0)
   const didChange =
     schemaVersion !== CURRENT_SCHEMA_VERSION ||
     raw[STORAGE_KEYS.WEBHOOKS] === undefined ||
     raw[STORAGE_KEYS.HISTORY] === undefined ||
-    raw[STORAGE_KEYS.UI_STATE] === undefined
+    raw[STORAGE_KEYS.UI_STATE] === undefined ||
+    raw[STORAGE_KEYS.CALLBACK_SESSIONS] === undefined
 
   const state: AppState = {
     webhooks,
     history,
     uiState,
     profileFields,
+    callbackSessions,
   }
 
   return {
@@ -270,6 +389,7 @@ function normalizeStorage(raw: Record<string, unknown>) {
       [STORAGE_KEYS.HISTORY]: history,
       [STORAGE_KEYS.UI_STATE]: uiState,
       [STORAGE_KEYS.PROFILE]: profileFields,
+      [STORAGE_KEYS.CALLBACK_SESSIONS]: callbackSessions,
       [STORAGE_KEYS.SCHEMA_VERSION]: CURRENT_SCHEMA_VERSION,
     },
   }
@@ -298,16 +418,22 @@ function normalizeWebhook(value: unknown): WebhookConfig | null {
   const webhookUrl = asNonEmptyString(item.webhookUrl)
   const authenticationToken =
     asOptionalString(item.authenticationToken) ?? asOptionalString(item.authToken) ?? ""
+  const deliveryMode = item.deliveryMode === "callback" ? "callback" : "direct"
+  const callbackBaseUrl = asOptionalString(item.callbackBaseUrl) ?? ""
+  const callbackDestinationId = asOptionalString(item.callbackDestinationId) ?? ""
 
-  if (!name || !webhookUrl) {
+  if (!name || (deliveryMode === "direct" && !webhookUrl) || (deliveryMode === "callback" && !callbackBaseUrl)) {
     return null
   }
 
   return {
     id,
     name,
-    webhookUrl,
+    deliveryMode,
+    webhookUrl: webhookUrl ?? "",
     authenticationToken,
+    callbackBaseUrl,
+    callbackDestinationId,
     isDefault: Boolean(item.isDefault),
     fields: normalizeFields(item.fields),
     createdAt: asIsoDate(item.createdAt),
@@ -452,7 +578,8 @@ function normalizeHistoryEntry(value: unknown): HistoryEntry | null {
   }
 
   const item = value as Record<string, unknown>
-  const status = item.status === "error" ? "error" : item.status === "sent" ? "sent" : null
+  const status =
+    item.status === "error" ? "error" : item.status === "pending" ? "pending" : item.status === "sent" ? "sent" : null
   const webhookName =
     asNonEmptyString(item.webhookName) ?? asNonEmptyString(item.destinationName)
 
@@ -474,6 +601,164 @@ function normalizeHistoryEntry(value: unknown): HistoryEntry | null {
     requestId: asOptionalString(item.requestId),
     errorCode: asErrorCode(item.errorCode),
   }
+}
+
+function normalizeCallbackSessions(value: unknown): CallbackSessionState[] {
+  if (!Array.isArray(value)) {
+    return EMPTY_CALLBACK_SESSIONS
+  }
+
+  return value
+    .map((entry) => normalizeCallbackSession(entry))
+    .filter((entry): entry is CallbackSessionState => entry !== null)
+    .slice(0, 25)
+}
+
+function normalizeCallbackSession(value: unknown): CallbackSessionState | null {
+  if (!value || typeof value !== "object") {
+    return null
+  }
+
+  const item = value as Record<string, unknown>
+  const sessionId = asNonEmptyString(item.sessionId)
+  const readToken = asNonEmptyString(item.readToken)
+  const webhookId = asNonEmptyString(item.webhookId)
+  const webhookName = asNonEmptyString(item.webhookName)
+  const callbackBaseUrl = asNonEmptyString(item.callbackBaseUrl)
+  const requestId = asNonEmptyString(item.requestId)
+  const status = asCallbackSessionStatus(item.status)
+  const expiresAt = Number(item.expiresAt)
+
+  if (
+    !sessionId ||
+    !readToken ||
+    !webhookId ||
+    !webhookName ||
+    !callbackBaseUrl ||
+    !requestId ||
+    !status ||
+    !Number.isFinite(expiresAt)
+  ) {
+    return null
+  }
+
+  return {
+    sessionId,
+    readToken,
+    expiresAt,
+    webhookId,
+    webhookName,
+    callbackBaseUrl,
+    destinationId: asOptionalString(item.destinationId) ?? "default",
+    requestId,
+    status,
+    result: normalizeCallbackResult(item.result),
+    errorCode: asOptionalString(item.errorCode),
+    createdAt: asIsoDate(item.createdAt),
+    updatedAt: asIsoDate(item.updatedAt),
+    clearedAt: asOptionalIsoDate(item.clearedAt),
+  }
+}
+
+function normalizeCallbackResult(value: unknown): CallbackResult | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined
+  }
+
+  const item = value as Record<string, unknown>
+  const title = asNonEmptyString(item.title)
+  if (!title) {
+    return undefined
+  }
+
+  const result: CallbackResult = {
+    title,
+    summary: asOptionalString(item.summary),
+    entity: normalizeCallbackEntity(item.entity),
+    fields: normalizeCallbackFields(item.fields),
+    actions: normalizeCallbackActions(item.actions),
+  }
+
+  return result
+}
+
+function normalizeCallbackEntity(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return undefined
+  }
+
+  const item = value as Record<string, unknown>
+  return {
+    name: asOptionalString(item.name),
+    domain: asOptionalString(item.domain),
+    url: asOptionalString(item.url),
+    type: asOptionalString(item.type),
+  }
+}
+
+function normalizeCallbackFields(value: unknown) {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  return value
+    .map((field) => {
+      if (!field || typeof field !== "object") {
+        return null
+      }
+      const item = field as Record<string, unknown>
+      const label = asNonEmptyString(item.label)
+      const fieldValue = item.value
+      if (
+        !label ||
+        !(
+          typeof fieldValue === "string" ||
+          typeof fieldValue === "number" ||
+          typeof fieldValue === "boolean" ||
+          fieldValue === null
+        )
+      ) {
+        return null
+      }
+
+      return {
+        label,
+        value: fieldValue,
+        type: asCallbackFieldType(item.type),
+        confidence: typeof item.confidence === "number" ? item.confidence : undefined,
+        source_url: asOptionalString(item.source_url),
+      }
+    })
+    .filter((field): field is NonNullable<typeof field> => field !== null)
+}
+
+function normalizeCallbackActions(value: unknown) {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  return value
+    .map((action) => {
+      if (!action || typeof action !== "object") {
+        return null
+      }
+      const item = action as Record<string, unknown>
+      const type = item.type
+      const label = asNonEmptyString(item.label)
+      if (!label) {
+        return null
+      }
+      if (type === "open_url") {
+        const url = asNonEmptyString(item.url)
+        return url ? { type: "open_url" as const, label, url } : null
+      }
+      if (type === "copy_value") {
+        const value = asNonEmptyString(item.value)
+        return value ? { type: "copy_value" as const, label, value } : null
+      }
+      return null
+    })
+    .filter((action): action is NonNullable<typeof action> => action !== null)
 }
 
 function normalizeUiState(value: unknown): UIState {
@@ -585,4 +870,27 @@ function asErrorCode(value: unknown): ErrorCode | undefined {
   }
 
   return undefined
+}
+
+function asCallbackSessionStatus(value: unknown): CallbackSessionStatus | undefined {
+  return value === "pending" ||
+    value === "ready" ||
+    value === "failed" ||
+    value === "expired" ||
+    value === "cleared"
+    ? value
+    : undefined
+}
+
+type CallbackFieldType = NonNullable<CallbackResult["fields"]>[number]["type"]
+
+function asCallbackFieldType(value: unknown): CallbackFieldType {
+  return value === "text" ||
+    value === "email" ||
+    value === "url" ||
+    value === "number" ||
+    value === "boolean" ||
+    value === "date"
+    ? value
+    : undefined
 }

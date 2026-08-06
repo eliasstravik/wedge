@@ -67,7 +67,9 @@ export function WebhooksList({
   const filtered = webhooks.filter(
     (w) =>
       w.name.toLowerCase().includes(search.toLowerCase()) ||
-      w.webhookUrl.toLowerCase().includes(search.toLowerCase())
+      w.webhookUrl.toLowerCase().includes(search.toLowerCase()) ||
+      w.callbackBaseUrl.toLowerCase().includes(search.toLowerCase()) ||
+      w.callbackDestinationId.toLowerCase().includes(search.toLowerCase())
   )
 
   const isFiltering = search.length > 0
@@ -184,7 +186,11 @@ function SortableRow({
     isDragging,
   } = useSortable({ id: webhook.id, disabled: isFiltering })
 
-  const hasAuth = Boolean(webhook.authenticationToken)
+  const hasAuth = webhook.deliveryMode === "direct" && Boolean(webhook.authenticationToken)
+  const endpoint =
+    webhook.deliveryMode === "callback"
+      ? `${webhook.callbackBaseUrl}${webhook.callbackDestinationId ? ` · ${webhook.callbackDestinationId}` : " · default"}`
+      : webhook.webhookUrl
   const skipNextClick = useRef(false)
 
   const style = {
@@ -233,12 +239,15 @@ function SortableRow({
         <div className="flex items-center gap-2">
           <span className="truncate">{webhook.name}</span>
           {isDefault ? <Badge className="shrink-0 text-[10px]">Default</Badge> : null}
+          {webhook.deliveryMode === "callback" ? (
+            <Badge variant="secondary" className="shrink-0 text-[10px]">Callback</Badge>
+          ) : null}
         </div>
       </TableCell>
 
       {/* URL */}
       <TableCell className="text-muted-foreground whitespace-normal break-all text-xs">
-        {webhook.webhookUrl || <span className="italic text-sm">No URL</span>}
+        {endpoint || <span className="italic text-sm">No URL</span>}
       </TableCell>
 
       {/* Fields */}
@@ -250,7 +259,9 @@ function SortableRow({
 
       {/* Auth */}
       <TableCell className="text-center">
-        {hasAuth ? (
+        {webhook.deliveryMode === "callback" ? (
+          <Badge variant="outline" className="text-[10px]">Server</Badge>
+        ) : hasAuth ? (
           <Badge variant="outline" className="text-[10px]">Token</Badge>
         ) : (
           <span className="text-xs text-muted-foreground/50">—</span>

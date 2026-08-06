@@ -1,4 +1,4 @@
-export type HistoryStatus = "sent" | "error"
+export type HistoryStatus = "sent" | "error" | "pending"
 export type TestStatus = "idle" | "success" | "error"
 export type ErrorCode =
   | "CONFIG_MISSING"
@@ -70,8 +70,11 @@ export type WebhookFieldDraft = WebhookField
 export interface WebhookConfig {
   id: string
   name: string
+  deliveryMode: "direct" | "callback"
   webhookUrl: string
   authenticationToken: string
+  callbackBaseUrl: string
+  callbackDestinationId: string
   isDefault: boolean
   fields: WebhookField[]
   createdAt: string
@@ -100,6 +103,62 @@ export interface UIState {
   lastSelectedWebhookId?: string
 }
 
+export type CallbackSessionStatus = "pending" | "ready" | "failed" | "expired" | "cleared"
+
+export interface CallbackResultEntity {
+  name?: string
+  domain?: string
+  url?: string
+  type?: string
+}
+
+export type CallbackResultFieldValue = string | number | boolean | null
+
+export interface CallbackResultField {
+  label: string
+  value: CallbackResultFieldValue
+  type?: "text" | "email" | "url" | "number" | "boolean" | "date"
+  confidence?: number
+  source_url?: string
+}
+
+export type CallbackResultAction =
+  | {
+      type: "open_url"
+      label: string
+      url: string
+    }
+  | {
+      type: "copy_value"
+      label: string
+      value: string
+    }
+
+export interface CallbackResult {
+  title: string
+  summary?: string
+  entity?: CallbackResultEntity
+  fields?: CallbackResultField[]
+  actions?: CallbackResultAction[]
+}
+
+export interface CallbackSessionState {
+  sessionId: string
+  readToken: string
+  expiresAt: number
+  webhookId: string
+  webhookName: string
+  callbackBaseUrl: string
+  destinationId: string
+  requestId: string
+  status: CallbackSessionStatus
+  result?: CallbackResult
+  errorCode?: string
+  createdAt: string
+  updatedAt: string
+  clearedAt?: string
+}
+
 export interface PageContextMeta {
   description: string
   canonical: string
@@ -126,6 +185,7 @@ export interface AppState {
   history: HistoryEntry[]
   uiState: UIState
   profileFields: WebhookField[]
+  callbackSessions: CallbackSessionState[]
 }
 
 export interface Diagnostics {
@@ -138,7 +198,10 @@ export interface Diagnostics {
 export interface WebhookDraft {
   id?: string
   name: string
+  deliveryMode: "direct" | "callback"
   webhookUrl: string
   authenticationToken: string
+  callbackBaseUrl: string
+  callbackDestinationId: string
   isDefault: boolean
 }
